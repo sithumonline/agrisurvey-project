@@ -1,3 +1,6 @@
+"use client"
+
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -5,8 +8,11 @@ import { Badge } from "@/components/ui/badge"
 import { Bug, Plus, Search, ArrowRight, AlertTriangle, Camera } from "lucide-react"
 import Link from "next/link"
 import MainLayout from "@/components/layout/main-layout"
+import { PestReportForm } from "@/components/forms/pest-report-form"
 
 export default function PestsPage() {
+  const [isFormOpen, setIsFormOpen] = useState(false)
+
   // Mock data for pest and disease reports
   const reports = [
     {
@@ -91,7 +97,7 @@ export default function PestsPage() {
             <h1 className="text-2xl font-bold tracking-tight">Pests & Diseases</h1>
             <p className="text-muted-foreground">Track and report pest sightings and disease symptoms</p>
           </div>
-          <Button className="mt-4 md:mt-0 bg-green-600 hover:bg-green-700">
+          <Button className="mt-4 md:mt-0 bg-green-600 hover:bg-green-700" onClick={() => setIsFormOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             New Report
           </Button>
@@ -162,6 +168,9 @@ export default function PestsPage() {
             </Card>
           ))}
         </div>
+
+        {/* Pest Report Form Modal */}
+        <PestReportForm isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} />
       </div>
     </MainLayout>
   )

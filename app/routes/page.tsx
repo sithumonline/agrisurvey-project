@@ -1,11 +1,17 @@
+"use client"
+
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Map, Plus, ArrowRight, CheckCircle, Clock, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import MainLayout from "@/components/layout/main-layout"
+import { RouteForm } from "@/components/forms/route-form"
 
 export default function RoutesPage() {
+  const [isFormOpen, setIsFormOpen] = useState(false)
+
   // Mock data for routes
   const routes = [
     {
@@ -91,7 +97,7 @@ export default function RoutesPage() {
             <h1 className="text-2xl font-bold tracking-tight">Routes</h1>
             <p className="text-muted-foreground">Manage your assigned survey routes</p>
           </div>
-          <Button className="mt-4 md:mt-0 bg-green-600 hover:bg-green-700">
+          <Button className="mt-4 md:mt-0 bg-green-600 hover:bg-green-700" onClick={() => setIsFormOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             New Route
           </Button>
@@ -134,6 +140,9 @@ export default function RoutesPage() {
             </Card>
           ))}
         </div>
+
+        {/* Route Form Modal */}
+        <RouteForm isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} />
       </div>
     </MainLayout>
   )

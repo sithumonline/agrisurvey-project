@@ -1,3 +1,6 @@
+"use client"
+
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -5,8 +8,11 @@ import { Badge } from "@/components/ui/badge"
 import { Leaf, Plus, Search, ArrowRight, Wheat, Coffee, Apple } from "lucide-react"
 import Link from "next/link"
 import MainLayout from "@/components/layout/main-layout"
+import { FarmForm } from "@/components/forms/farm-form"
 
 export default function FarmsPage() {
+  const [isFormOpen, setIsFormOpen] = useState(false)
+
   // Mock data for farms
   const farms = [
     {
@@ -73,7 +79,7 @@ export default function FarmsPage() {
             <h1 className="text-2xl font-bold tracking-tight">Farms</h1>
             <p className="text-muted-foreground">View and manage surveyed farms</p>
           </div>
-          <Button className="mt-4 md:mt-0 bg-green-600 hover:bg-green-700">
+          <Button className="mt-4 md:mt-0 bg-green-600 hover:bg-green-700" onClick={() => setIsFormOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             Add New Farm
           </Button>
@@ -132,6 +138,9 @@ export default function FarmsPage() {
             </Card>
           ))}
         </div>
+
+        {/* Farm Form Modal */}
+        <FarmForm isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} />
       </div>
     </MainLayout>
   )

@@ -1,3 +1,6 @@
+"use client"
+
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -5,8 +8,13 @@ import { Badge } from "@/components/ui/badge"
 import { Droplets, Plus, ArrowRight, FlaskRoundIcon as Flask } from "lucide-react"
 import Link from "next/link"
 import MainLayout from "@/components/layout/main-layout"
+import { SoilSampleForm } from "@/components/forms/soil-sample-form"
+import { WaterSampleForm } from "@/components/forms/water-sample-form"
 
 export default function SamplingPage() {
+  const [isSoilFormOpen, setIsSoilFormOpen] = useState(false)
+  const [isWaterFormOpen, setIsWaterFormOpen] = useState(false)
+
   // Mock data for soil samples
   const soilSamples = [
     {
@@ -69,11 +77,11 @@ export default function SamplingPage() {
             <p className="text-muted-foreground">Manage soil and water samples</p>
           </div>
           <div className="mt-4 md:mt-0 flex space-x-2">
-            <Button className="bg-green-600 hover:bg-green-700">
+            <Button className="bg-green-600 hover:bg-green-700" onClick={() => setIsSoilFormOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
               New Soil Sample
             </Button>
-            <Button variant="outline">
+            <Button variant="outline" onClick={() => setIsWaterFormOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
               New Water Sample
             </Button>
@@ -202,6 +210,12 @@ export default function SamplingPage() {
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Soil Sample Form Modal */}
+        <SoilSampleForm isOpen={isSoilFormOpen} onClose={() => setIsSoilFormOpen(false)} />
+
+        {/* Water Sample Form Modal */}
+        <WaterSampleForm isOpen={isWaterFormOpen} onClose={() => setIsWaterFormOpen(false)} />
       </div>
     </MainLayout>
   )

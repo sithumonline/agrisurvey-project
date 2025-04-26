@@ -1,0 +1,144 @@
+"use client"
+
+import type React from "react"
+
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Loader2 } from "lucide-react"
+import { ModalForm } from "@/components/ui/modal-form"
+
+interface FarmFormProps {
+  isOpen: boolean
+  onClose: () => void
+}
+
+export function FarmForm({ isOpen, onClose }: FarmFormProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [formData, setFormData] = useState({
+    name: "",
+    ownerName: "",
+    sizeHa: "",
+    location: "",
+    routeId: "",
+  })
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleRouteChange = (value: string) => {
+    setFormData((prev) => ({ ...prev, routeId: value }))
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSubmitting(true)
+
+    // Simulate API call
+    setTimeout(() => {
+      setIsSubmitting(false)
+      onClose()
+      // In a real app, you would save the data to your backend here
+      console.log("Farm data submitted:", formData)
+    }, 1000)
+  }
+
+  // Mock routes for the select dropdown
+  const routes = [
+    { id: "1", name: "Eastern District Route" },
+    { id: "2", name: "Northern Farms Survey" },
+    { id: "3", name: "Riverside Water Sampling" },
+    { id: "5", name: "Western Highlands Survey" },
+  ]
+
+  return (
+    <ModalForm title="Add New Farm" description="Register a new farm for surveying" isOpen={isOpen} onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+        <div className="space-y-2">
+          <Label htmlFor="name">Farm Name</Label>
+          <Input
+            id="name"
+            name="name"
+            placeholder="Johnson's Maize Field"
+            value={formData.name}
+            onChange={handleChange}
+            required
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="ownerName">Owner Name</Label>
+          <Input
+            id="ownerName"
+            name="ownerName"
+            placeholder="Robert Johnson"
+            value={formData.ownerName}
+            onChange={handleChange}
+            required
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="sizeHa">Size (hectares)</Label>
+          <Input
+            id="sizeHa"
+            name="sizeHa"
+            type="number"
+            step="0.1"
+            min="0"
+            placeholder="5.2"
+            value={formData.sizeHa}
+            onChange={handleChange}
+            required
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="location">Location Description</Label>
+          <Textarea
+            id="location"
+            name="location"
+            placeholder="Eastern District, Plot 12"
+            value={formData.location}
+            onChange={handleChange}
+            rows={2}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="routeId">Assigned Route</Label>
+          <Select value={formData.routeId} onValueChange={handleRouteChange}>
+            <SelectTrigger id="routeId">
+              <SelectValue placeholder="Select a route" />
+            </SelectTrigger>
+            <SelectContent>
+              {routes.map((route) => (
+                <SelectItem key={route.id} value={route.id}>
+                  {route.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex justify-end pt-4">
+          <Button type="submit" className="bg-green-600 hover:bg-green-700" disabled={isSubmitting}>
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              "Save Farm"
+            )}
+          </Button>
+        </div>
+      </form>
+    </ModalForm>
+  )
+}
