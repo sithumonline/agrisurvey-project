@@ -20,7 +20,7 @@ SECRET_KEY = env.str('SECRET_KEY', 'django-insecure-default-key-for-development'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.str('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = env.str('ALLOWED_HOSTS', 'localhost,127.0.0.1,v0-agri-survey-ui.vercel.app').split(',')
+ALLOWED_HOSTS = env.str('ALLOWED_HOSTS', 'localhost,127.0.0.1,v0-agri-survey-ui.vercel.app,agri-survey-server.fly.dev').split(',')
 
 # Application definition
 INSTALLED_APPS = [
