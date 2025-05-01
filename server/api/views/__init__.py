@@ -1,4 +1,5 @@
-from api.views.auth import UserViewSet, RouteViewSet
+from api.views.auth import UserViewSet
+from api.views.route import RouteViewSet
 from api.views.farm import FarmViewSet, CropViewSet
 from api.views.sampling import SoilSampleViewSet, WaterSampleViewSet
 from api.views.pest import PestDiseaseReportViewSet

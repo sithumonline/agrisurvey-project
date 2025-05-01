@@ -1,3 +1,4 @@
+'use client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
@@ -6,15 +7,66 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Map, Leaf, Droplets, Bug, AlertTriangle, CheckCircle2, Clock, ArrowRight } from "lucide-react"
 import Link from "next/link"
 import MainLayout from "@/components/layout/main-layout"
+import { dashboardApi } from "@/services/api"
+import {use, useEffect, useState} from "react"; // Import the dashboard API service
 
 export default function DashboardPage() {
+  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError]  = useState<string|null>(null);
+useEffect(()=>{
+  // fetch dashboard data
+  const fetchDashboardData = async () => {
+    try {
+      setIsLoading(true);
+      const response = await dashboardApi.getData();
+      setDashboardData(response.data);
+    } catch (err) {
+      console.error("Failed to fetch dashboard data:", err);
+      setError(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  fetchDashboardData();
+}, []);
+
+
+  if (isLoading) {
+    return (
+        <MainLayout>
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+          </div>
+        </MainLayout>
+    )
+  }
+
+  if (error) {
+    return (
+        <MainLayout>
+          <div className="p-6">
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+            <Button className="mt-4" onClick={() => window.location.reload()}>
+              Try Again
+            </Button>
+          </div>
+        </MainLayout>
+    )
+  }
+
   return (
     <MainLayout>
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-            <p className="text-muted-foreground">Welcome back, John Doe. Here's your survey overview.</p>
+            <p className="text-muted-foreground">Welcome back, {dashboardData?.user?.name}. Here's your survey overview.</p>
           </div>
           <div className="mt-4 md:mt-0 flex space-x-2">
             <Button variant="outline">Sync Data</Button>
@@ -29,8 +81,10 @@ export default function DashboardPage() {
               <Map className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">12</div>
-              <p className="text-xs text-muted-foreground">8 completed, 4 pending</p>
+              <div className="text-2xl font-bold">
+                {dashboardData?.route?.total || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">{dashboardData?.route?.completed || 0} completed, {dashboardData?.route?.pending || 0} pending</p>
             </CardContent>
           </Card>
           <Card>
@@ -39,8 +93,17 @@ export default function DashboardPage() {
               <Leaf className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">48</div>
-              <p className="text-xs text-muted-foreground">+12 from last week</p>
+              <div className="text-2xl font-bold">{dashboardData?.farms?.total || 0}</div>
+              <p className="text-xs text-muted-foreground">
+                {
+                  dashboardData?.activity && dashboardData?.activity.length > 0 ?
+                      dashboardData?.activity.filter((e)=>{return e.type == 'farm'}).map((e)=>{
+                        return <span key={e.id}>{e.name}, </span>
+                      })
+                      : 'Nothing new'
+                }
+
+              </p>
             </CardContent>
           </Card>
           <Card>
@@ -49,8 +112,10 @@ export default function DashboardPage() {
               <Droplets className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">86</div>
-              <p className="text-xs text-muted-foreground">52 soil, 34 water</p>
+              <div className="text-2xl font-bold">
+                {(dashboardData?.sampling?.soil?.total || 0) + (dashboardData?.sampling?.water?.total || 0)}
+              </div>
+              <p className="text-xs text-muted-foreground">{dashboardData?.sampling?.soil?.total || 0} soil, {dashboardData?.sampling?.water?.total || 0} water</p>
             </CardContent>
           </Card>
           <Card>
