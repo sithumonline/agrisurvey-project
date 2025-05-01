@@ -22,6 +22,8 @@ DEBUG = env.str('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = env.str('ALLOWED_HOSTS', 'localhost,127.0.0.1,v0-agri-survey-ui.vercel.app,agri-survey-server.fly.dev').split(',')
 
+print("ALLOWED_HOSTS:", ALLOWED_HOSTS)
+
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -78,6 +80,8 @@ WSGI_APPLICATION = 'api.wsgi.application'
 DATABASES = {
     "default": env.dj_db_url("DATABASE_URL", default="sqlite:///db.sqlite3"),
 }
+
+print("DATABASES:", DATABASES)
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -153,4 +157,4 @@ SIMPLE_JWT = {
 CORS_ALLOWED_ORIGINS = env.str('CORS_ALLOWED_ORIGINS',
                                  'http://localhost:3000,http://127.0.0.1:3000,https://v0-agri-survey-ui.vercel.app').split(',')
 CORS_ALLOW_CREDENTIALS = True
-CSRF_TRUSTED_ORIGINS = env.str('CSRF_TRUSTED_ORIGINS', 'https://v0-agri-survey-ui.vercel.app').split(',')
+CSRF_TRUSTED_ORIGINS = env.str('CSRF_TRUSTED_ORIGINS', 'https://v0-agri-survey-ui.vercel.app,https://agri-survey-server.fly.dev,http://localhost:3000,http://127.0.0.1:3000').split(',')
