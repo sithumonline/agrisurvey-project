@@ -2,20 +2,25 @@ import os
 from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
+from environs import Env  # new
 
 # Load environment variables from .env file
 load_dotenv()
+
+# Initialize environment variables
+env = Env()
+env.read_env()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-default-key-for-development')
+SECRET_KEY = env.str('SECRET_KEY', 'django-insecure-default-key-for-development')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', 'True') == 'True'
+DEBUG = env.str('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = env.str('ALLOWED_HOSTS', 'localhost,127.0.0.1,v0-agri-survey-ui.vercel.app').split(',')
 
 # Application definition
 INSTALLED_APPS = [
@@ -71,10 +76,7 @@ WSGI_APPLICATION = 'api.wsgi.application'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-    }
+    "default": env.dj_db_url("DATABASE_URL", default="sqlite:///db.sqlite3"),
 }
 
 # Password validation
@@ -148,6 +150,7 @@ SIMPLE_JWT = {
 }
 
 # CORS settings
-CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS',
-                                 'http://localhost:3000,http://127.0.0.1:3000').split(',')
+CORS_ALLOWED_ORIGINS = env.str('CORS_ALLOWED_ORIGINS',
+                                 'http://localhost:3000,http://127.0.0.1:3000,https://v0-agri-survey-ui.vercel.app').split(',')
 CORS_ALLOW_CREDENTIALS = True
+CSRF_TRUSTED_ORIGINS = env.str('CSRF_TRUSTED_ORIGINS', 'https://v0-agri-survey-ui.vercel.app').split(',')

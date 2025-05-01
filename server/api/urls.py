@@ -47,7 +47,5 @@ urlpatterns = [
          kwargs={'format': 'csv'}),
     path('export/pest-disease/', PestDiseaseReportViewSet.as_view({'get': 'list'}), name='export_pest_disease',
          kwargs={'format': 'csv'}),
-
-
 ]
 
