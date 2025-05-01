@@ -22,10 +22,9 @@ schema_view = get_schema_view(
 urlpatterns = [
     # Admin site
     path('admin/', admin.site.urls),
-
-    # API URLs
     path('api/', include('api.urls')),
 
+    # API URLs
     # API documentation
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
