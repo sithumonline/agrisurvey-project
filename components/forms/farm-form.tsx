@@ -1,63 +1,95 @@
-"use client"
+"use client";
 
-import type React from "react"
-
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Loader2 } from "lucide-react"
-import { ModalForm } from "@/components/ui/modal-form"
+import type React from "react";
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Loader2 } from "lucide-react";
+import { ModalForm } from "@/components/ui/modal-form";
+import { farmsApi, routesApi } from "@/services/api"; // <-- import APIs
 
 interface FarmFormProps {
-  isOpen: boolean
-  onClose: () => void
+  isOpen: boolean;
+  onClose: () => void;
 }
 
 export function FarmForm({ isOpen, onClose }: FarmFormProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     ownerName: "",
     sizeHa: "",
     location: "",
     routeId: "",
-  })
+  });
+  const [routes, setRoutes] = useState<any[]>([]);
+  const [loadingRoutes, setLoadingRoutes] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
+  useEffect(() => {
+    if (!isOpen) return;
+    setLoadingRoutes(true);
+    routesApi
+      .getAll()
+      .then((res) => {
+        const data = Array.isArray(res.data) ? res.data : res.data.results;
+        setRoutes(data || []);
+        setLoadingRoutes(false);
+      })
+      .catch(() => {
+        setError("Failed to load routes");
+        setLoadingRoutes(false);
+      });
+  }, [isOpen]);
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
 
   const handleRouteChange = (value: string) => {
-    setFormData((prev) => ({ ...prev, routeId: value }))
-  }
+    setFormData((prev) => ({ ...prev, routeId: value }));
+  };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSubmitting(true)
-
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false)
-      onClose()
-      // In a real app, you would save the data to your backend here
-      console.log("Farm data submitted:", formData)
-    }, 1000)
-  }
-
-  // Mock routes for the select dropdown
-  const routes = [
-    { id: "1", name: "Eastern District Route" },
-    { id: "2", name: "Northern Farms Survey" },
-    { id: "3", name: "Riverside Water Sampling" },
-    { id: "5", name: "Western Highlands Survey" },
-  ]
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      await farmsApi.create({
+        name: formData.name,
+        owner_name: formData.ownerName,
+        size_ha: formData.sizeHa,
+        location: formData.location,
+        route: formData.routeId,
+      });
+      setIsSubmitting(false);
+      onClose();
+      // Optionally: reset form or trigger parent refresh
+    } catch (err: any) {
+      setError("Failed to save farm");
+      setIsSubmitting(false);
+    }
+  };
 
   return (
-    <ModalForm title="Add New Farm" description="Register a new farm for surveying" isOpen={isOpen} onClose={onClose}>
+    <ModalForm
+      title="Add New Farm"
+      description="Register a new farm for surveying"
+      isOpen={isOpen}
+      onClose={onClose}
+    >
       <form onSubmit={handleSubmit} className="space-y-4 mt-4">
         <div className="space-y-2">
           <Label htmlFor="name">Farm Name</Label>
@@ -112,9 +144,17 @@ export function FarmForm({ isOpen, onClose }: FarmFormProps) {
 
         <div className="space-y-2">
           <Label htmlFor="routeId">Assigned Route</Label>
-          <Select value={formData.routeId} onValueChange={handleRouteChange}>
+          <Select
+            value={formData.routeId}
+            onValueChange={handleRouteChange}
+            disabled={loadingRoutes}
+          >
             <SelectTrigger id="routeId">
-              <SelectValue placeholder="Select a route" />
+              <SelectValue
+                placeholder={
+                  loadingRoutes ? "Loading routes..." : "Select a route"
+                }
+              />
             </SelectTrigger>
             <SelectContent>
               {routes.map((route) => (
@@ -126,8 +166,14 @@ export function FarmForm({ isOpen, onClose }: FarmFormProps) {
           </Select>
         </div>
 
+        {error && <div className="text-red-500 text-sm">{error}</div>}
+
         <div className="flex justify-end pt-4">
-          <Button type="submit" className="bg-green-600 hover:bg-green-700" disabled={isSubmitting}>
+          <Button
+            type="submit"
+            className="bg-green-600 hover:bg-green-700"
+            disabled={isSubmitting}
+          >
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -140,5 +186,5 @@ export function FarmForm({ isOpen, onClose }: FarmFormProps) {
         </div>
       </form>
     </ModalForm>
-  )
+  );
 }
