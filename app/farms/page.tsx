@@ -155,12 +155,12 @@ export default function FarmsPage() {
                             : "-"}
                         </span>
                       </div>
-                      <Link href={`/farms/${farm.id}`}>
+                      {/* <Link href={`/farms/${farm.id}`}>
                         <Button variant="outline" className="w-full">
                           View Details
                           <ArrowRight className="ml-2 h-4 w-4" />
                         </Button>
-                      </Link>
+                      </Link> */}
                     </div>
                   </CardContent>
                 </Card>
