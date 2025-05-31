@@ -1,59 +1,95 @@
-"use client"
+"use client";
 
-import type React from "react"
-
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Loader2, Upload } from "lucide-react"
-import { ModalForm } from "@/components/ui/modal-form"
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Loader2, Upload } from "lucide-react";
+import { ModalForm } from "@/components/ui/modal-form";
+import { waterSamplesApi, farmsApi } from "@/services/api";
 
 interface WaterSampleFormProps {
-  isOpen: boolean
-  onClose: () => void
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess?: () => void;
 }
 
-export function WaterSampleForm({ isOpen, onClose }: WaterSampleFormProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false)
+export function WaterSampleForm({
+  isOpen,
+  onClose,
+  onSuccess,
+}: WaterSampleFormProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     farmId: "",
+    sampleDate: "",
     source: "",
     pH: "",
     turbidity: "",
     notes: "",
-  })
+  });
+  const [farms, setFarms] = useState<any[]>([]);
+  const [loadingFarms, setLoadingFarms] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
+  useEffect(() => {
+    if (!isOpen) return;
+    setLoadingFarms(true);
+    farmsApi
+      .getAll()
+      .then((res) => {
+        const data = Array.isArray(res.data) ? res.data : res.data.results;
+        setFarms(data || []);
+        setLoadingFarms(false);
+      })
+      .catch(() => {
+        setError("Failed to load farms");
+        setLoadingFarms(false);
+      });
+  }, [isOpen]);
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
 
   const handleFarmChange = (value: string) => {
-    setFormData((prev) => ({ ...prev, farmId: value }))
-  }
+    setFormData((prev) => ({ ...prev, farmId: value }));
+  };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSubmitting(true)
-
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false)
-      onClose()
-      // In a real app, you would save the data to your backend here
-      console.log("Water sample data submitted:", formData)
-    }, 1000)
-  }
-
-  // Mock farms for the select dropdown
-  const farms = [
-    { id: "1", name: "Johnson's Maize Field" },
-    { id: "2", name: "Green Valley Coffee Plantation" },
-    { id: "3", name: "Riverside Orchard" },
-    { id: "4", name: "Eastern Wheat Fields" },
-  ]
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      await waterSamplesApi.create({
+        farm: formData.farmId,
+        sample_date: formData.sampleDate, // <-- required field
+        source: formData.source,
+        pH: formData.pH,
+        turbidity: formData.turbidity,
+        notes: formData.notes,
+      });
+      setIsSubmitting(false);
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        onClose();
+      }
+    } catch (err: any) {
+      setError("Failed to save water sample");
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <ModalForm
@@ -65,9 +101,18 @@ export function WaterSampleForm({ isOpen, onClose }: WaterSampleFormProps) {
       <form onSubmit={handleSubmit} className="space-y-4 mt-4">
         <div className="space-y-2">
           <Label htmlFor="farmId">Farm</Label>
-          <Select value={formData.farmId} onValueChange={handleFarmChange} required>
+          <Select
+            value={formData.farmId}
+            onValueChange={handleFarmChange}
+            disabled={loadingFarms}
+            required
+          >
             <SelectTrigger id="farmId">
-              <SelectValue placeholder="Select a farm" />
+              <SelectValue
+                placeholder={
+                  loadingFarms ? "Loading farms..." : "Select a farm"
+                }
+              />
             </SelectTrigger>
             <SelectContent>
               {farms.map((farm) => (
@@ -77,6 +122,18 @@ export function WaterSampleForm({ isOpen, onClose }: WaterSampleFormProps) {
               ))}
             </SelectContent>
           </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="sampleDate">Sample Date</Label>
+          <Input
+            id="sampleDate"
+            name="sampleDate"
+            type="date"
+            value={formData.sampleDate}
+            onChange={handleChange}
+            required
+          />
         </div>
 
         <div className="space-y-2">
@@ -125,15 +182,6 @@ export function WaterSampleForm({ isOpen, onClose }: WaterSampleFormProps) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="photo">Sample Photo</Label>
-          <div className="border-2 border-dashed rounded-md p-4 text-center cursor-pointer hover:bg-gray-50">
-            <Upload className="h-6 w-6 mx-auto text-gray-400" />
-            <p className="text-sm text-gray-500 mt-2">Click to upload or drag and drop</p>
-            <p className="text-xs text-gray-400">JPG, PNG or HEIC up to 10MB</p>
-          </div>
-        </div>
-
-        <div className="space-y-2">
           <Label htmlFor="notes">Notes</Label>
           <Input
             id="notes"
@@ -144,8 +192,14 @@ export function WaterSampleForm({ isOpen, onClose }: WaterSampleFormProps) {
           />
         </div>
 
+        {error && <div className="text-red-500 text-sm">{error}</div>}
+
         <div className="flex justify-end pt-4">
-          <Button type="submit" className="bg-green-600 hover:bg-green-700" disabled={isSubmitting}>
+          <Button
+            type="submit"
+            className="bg-green-600 hover:bg-green-700"
+            disabled={isSubmitting}
+          >
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -158,5 +212,5 @@ export function WaterSampleForm({ isOpen, onClose }: WaterSampleFormProps) {
         </div>
       </form>
     </ModalForm>
-  )
+  );
 }
