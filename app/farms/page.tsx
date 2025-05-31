@@ -38,12 +38,11 @@ export default function FarmsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchFarms = () => {
     setLoading(true);
     farmsApi
       .getAll()
       .then((res) => {
-        // If paginated, use res.data.results; else use res.data
         const data = Array.isArray(res.data) ? res.data : res.data.results;
         setFarms(data || []);
         setLoading(false);
@@ -52,7 +51,16 @@ export default function FarmsPage() {
         setError("Failed to load farms");
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchFarms();
   }, []);
+
+  const handleFormSuccess = () => {
+    setIsFormOpen(false);
+    fetchFarms();
+  };
 
   return (
     <MainLayout>
@@ -161,8 +169,11 @@ export default function FarmsPage() {
           </div>
         )}
 
-        {/* Farm Form Modal */}
-        <FarmForm isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} />
+        <FarmForm
+          isOpen={isFormOpen}
+          onClose={() => setIsFormOpen(false)}
+          onSuccess={handleFormSuccess}
+        />
       </div>
     </MainLayout>
   );

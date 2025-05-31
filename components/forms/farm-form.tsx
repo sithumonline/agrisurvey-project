@@ -20,9 +20,10 @@ import { farmsApi, routesApi } from "@/services/api"; // <-- import APIs
 interface FarmFormProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-export function FarmForm({ isOpen, onClose }: FarmFormProps) {
+export function FarmForm({ isOpen, onClose, onSuccess }: FarmFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -75,8 +76,11 @@ export function FarmForm({ isOpen, onClose }: FarmFormProps) {
         route: formData.routeId,
       });
       setIsSubmitting(false);
-      onClose();
-      // Optionally: reset form or trigger parent refresh
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        onClose();
+      }
     } catch (err: any) {
       setError("Failed to save farm");
       setIsSubmitting(false);
