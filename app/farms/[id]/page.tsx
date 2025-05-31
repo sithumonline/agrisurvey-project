@@ -1,36 +1,71 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge } from "@/components/ui/badge"
-import { Edit, ArrowLeft, MapPin, User, Ruler, Calendar, Wheat, Droplets, Bug, Plus, ArrowRight } from "lucide-react"
-import Link from "next/link"
-import MainLayout from "@/components/layout/main-layout"
+import React from "react";
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import {
+  // Edit,
+  ArrowLeft,
+  MapPin,
+  User,
+  Ruler,
+  Calendar,
+  Wheat,
+  Droplets,
+  Bug,
+  Plus,
+  ArrowRight,
+} from "lucide-react";
+import Link from "next/link";
+import MainLayout from "@/components/layout/main-layout";
+import { farmsApi } from "@/services/api";
 
-export default function FarmDetailPage({ params }: { params: { id: string } }) {
-  const [activeTab, setActiveTab] = useState("details")
+export default function FarmDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = React.use(params);
+  const [activeTab, setActiveTab] = useState("details");
+  const [farm, setFarm] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Mock farm data
-  const farm = {
-    id: params.id,
-    name: "Johnson's Maize Field",
-    owner: "Robert Johnson",
-    size: 5.2,
-    crops: [
-      { name: "Maize", variety: "Pioneer P1234", plantingDate: "Mar 15, 2025", harvestDate: "Jul 20, 2025" },
-      { name: "Beans", variety: "Red Kidney", plantingDate: "Mar 20, 2025", harvestDate: "Jun 30, 2025" },
-    ],
-    location: "Eastern District, Plot 12",
-    coordinates: "1.2345° N, 36.7890° E",
-    lastVisited: "Today",
-    soilSamples: [
-      { id: "1", date: "Today", pH: 6.8, moisture: 42 },
-      { id: "2", date: "Apr 10, 2025", pH: 6.7, moisture: 38 },
-    ],
-    waterSamples: [{ id: "1", date: "Apr 12, 2025", source: "Irrigation Canal", pH: 7.1 }],
-    pestReports: [{ id: "1", date: "Today", name: "Aphids", severity: "medium" }],
+  useEffect(() => {
+    setLoading(true);
+    farmsApi
+      .getById(id)
+      .then((res) => {
+        setFarm(res.data);
+        setLoading(false);
+      })
+      .catch(() => {
+        setError("Failed to load farm details");
+        setLoading(false);
+      });
+  }, [id]);
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <div className="text-center py-10 text-muted-foreground">
+          Loading farm details...
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (error || !farm) {
+    return (
+      <MainLayout>
+        <div className="text-center py-10 text-red-500">
+          {error || "Farm not found"}
+        </div>
+      </MainLayout>
+    );
   }
 
   return (
@@ -48,13 +83,17 @@ export default function FarmDetailPage({ params }: { params: { id: string } }) {
               <p className="text-muted-foreground">Farm ID: {farm.id}</p>
             </div>
           </div>
-          <Button className="mt-4 md:mt-0" variant="outline">
+          {/* <Button className="mt-4 md:mt-0" variant="outline">
             <Edit className="mr-2 h-4 w-4" />
             Edit Farm
-          </Button>
+          </Button> */}
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="space-y-4"
+        >
           <TabsList>
             <TabsTrigger value="details">Farm Details</TabsTrigger>
             <TabsTrigger value="crops">Crops</TabsTrigger>
@@ -74,14 +113,14 @@ export default function FarmDetailPage({ params }: { params: { id: string } }) {
                       <User className="h-4 w-4 mr-2 text-green-600" />
                       <span className="text-sm font-medium">Owner</span>
                     </div>
-                    <p>{farm.owner}</p>
+                    <p>{farm.owner_name}</p>
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center">
                       <Ruler className="h-4 w-4 mr-2 text-green-600" />
                       <span className="text-sm font-medium">Size</span>
                     </div>
-                    <p>{farm.size} hectares</p>
+                    <p>{farm.size_ha} hectares</p>
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center">
@@ -95,14 +134,22 @@ export default function FarmDetailPage({ params }: { params: { id: string } }) {
                       <MapPin className="h-4 w-4 mr-2 text-green-600" />
                       <span className="text-sm font-medium">Coordinates</span>
                     </div>
-                    <p>{farm.coordinates}</p>
+                    <p>
+                      {farm.boundary_geo
+                        ? JSON.stringify(farm.boundary_geo)
+                        : "-"}
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center">
                       <Calendar className="h-4 w-4 mr-2 text-green-600" />
                       <span className="text-sm font-medium">Last Visited</span>
                     </div>
-                    <p>{farm.lastVisited}</p>
+                    <p>
+                      {farm.updated_at
+                        ? new Date(farm.updated_at).toLocaleDateString()
+                        : "-"}
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -114,7 +161,9 @@ export default function FarmDetailPage({ params }: { params: { id: string } }) {
               </CardHeader>
               <CardContent>
                 <div className="bg-gray-100 rounded-md h-64 flex items-center justify-center">
-                  <p className="text-gray-500">Farm boundary map would be displayed here</p>
+                  <p className="text-gray-500">
+                    Farm boundary map would be displayed here
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -130,30 +179,50 @@ export default function FarmDetailPage({ params }: { params: { id: string } }) {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              {farm.crops.map((crop, index) => (
-                <Card key={index}>
+              {(farm.crops || []).map((crop: any, index: number) => (
+                <Card key={crop.id || index}>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gray-50 border-b">
-                    <CardTitle className="text-md font-medium">{crop.name}</CardTitle>
+                    <CardTitle className="text-md font-medium">
+                      {crop.crop_type}
+                    </CardTitle>
                     <Wheat className="h-4 w-4 text-green-600" />
                   </CardHeader>
                   <CardContent className="pt-4">
                     <div className="space-y-4">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">Variety:</span>
-                        <span className="text-sm font-medium">{crop.variety}</span>
+                        <span className="text-sm text-muted-foreground">
+                          Variety:
+                        </span>
+                        <span className="text-sm font-medium">
+                          {crop.variety}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">Planting Date:</span>
-                        <span className="text-sm font-medium">{crop.plantingDate}</span>
+                        <span className="text-sm text-muted-foreground">
+                          Planting Date:
+                        </span>
+                        <span className="text-sm font-medium">
+                          {crop.planting_date}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">Expected Harvest:</span>
-                        <span className="text-sm font-medium">{crop.harvestDate}</span>
+                        <span className="text-sm text-muted-foreground">
+                          Expected Harvest:
+                        </span>
+                        <span className="text-sm font-medium">
+                          {crop.expected_harvest}
+                        </span>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
               ))}
+              {(farm.crops || []).length === 0 && (
+                <div className="col-span-2 text-center py-8 bg-gray-50 rounded-md">
+                  <Wheat className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-500">No crops for this farm</p>
+                </div>
+              )}
             </div>
           </TabsContent>
 
@@ -174,34 +243,46 @@ export default function FarmDetailPage({ params }: { params: { id: string } }) {
 
             <h4 className="text-md font-medium mt-4">Soil Samples</h4>
             <div className="grid gap-4 md:grid-cols-2">
-              {farm.soilSamples.map((sample) => (
+              {(farm.soil_samples || []).map((sample: any) => (
                 <Card key={sample.id}>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gray-50 border-b">
-                    <CardTitle className="text-md font-medium">Soil Sample #{sample.id}</CardTitle>
+                    <CardTitle className="text-md font-medium">
+                      Soil Sample #{sample.id}
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-4">
                     <div className="space-y-4">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">Date:</span>
-                        <span className="text-sm font-medium">{sample.date}</span>
+                        <span className="text-sm text-muted-foreground">
+                          Date:
+                        </span>
+                        <span className="text-sm font-medium">
+                          {sample.date || sample.created_at}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">pH:</span>
+                        <span className="text-sm text-muted-foreground">
+                          pH:
+                        </span>
                         <Badge
                           className={`${
                             sample.pH < 6.5
                               ? "bg-amber-100 text-amber-800"
                               : sample.pH > 7.5
-                                ? "bg-amber-100 text-amber-800"
-                                : "bg-green-100 text-green-800"
+                              ? "bg-amber-100 text-amber-800"
+                              : "bg-green-100 text-green-800"
                           } hover:bg-opacity-90`}
                         >
                           {sample.pH}
                         </Badge>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">Moisture:</span>
-                        <span className="text-sm font-medium">{sample.moisture}%</span>
+                        <span className="text-sm text-muted-foreground">
+                          Moisture:
+                        </span>
+                        <span className="text-sm font-medium">
+                          {sample.moisture}%
+                        </span>
                       </div>
                       <Link href={`/sampling/soil/${sample.id}`}>
                         <Button variant="outline" className="w-full mt-2">
@@ -213,35 +294,53 @@ export default function FarmDetailPage({ params }: { params: { id: string } }) {
                   </CardContent>
                 </Card>
               ))}
+              {(farm.soil_samples || []).length === 0 && (
+                <div className="col-span-2 text-center py-8 bg-gray-50 rounded-md">
+                  <Droplets className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-500">No soil samples for this farm</p>
+                </div>
+              )}
             </div>
 
             <h4 className="text-md font-medium mt-4">Water Samples</h4>
             <div className="grid gap-4 md:grid-cols-2">
-              {farm.waterSamples.map((sample) => (
+              {(farm.water_samples || []).map((sample: any) => (
                 <Card key={sample.id}>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gray-50 border-b">
-                    <CardTitle className="text-md font-medium">Water Sample #{sample.id}</CardTitle>
+                    <CardTitle className="text-md font-medium">
+                      Water Sample #{sample.id}
+                    </CardTitle>
                     <Droplets className="h-4 w-4 text-green-600" />
                   </CardHeader>
                   <CardContent className="pt-4">
                     <div className="space-y-4">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">Date:</span>
-                        <span className="text-sm font-medium">{sample.date}</span>
+                        <span className="text-sm text-muted-foreground">
+                          Date:
+                        </span>
+                        <span className="text-sm font-medium">
+                          {sample.date || sample.created_at}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">Source:</span>
-                        <span className="text-sm font-medium">{sample.source}</span>
+                        <span className="text-sm text-muted-foreground">
+                          Source:
+                        </span>
+                        <span className="text-sm font-medium">
+                          {sample.source}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">pH:</span>
+                        <span className="text-sm text-muted-foreground">
+                          pH:
+                        </span>
                         <Badge
                           className={`${
                             sample.pH < 6.5
                               ? "bg-amber-100 text-amber-800"
                               : sample.pH > 7.5
-                                ? "bg-amber-100 text-amber-800"
-                                : "bg-green-100 text-green-800"
+                              ? "bg-amber-100 text-amber-800"
+                              : "bg-green-100 text-green-800"
                           } hover:bg-opacity-90`}
                         >
                           {sample.pH}
@@ -257,6 +356,14 @@ export default function FarmDetailPage({ params }: { params: { id: string } }) {
                   </CardContent>
                 </Card>
               ))}
+              {(farm.water_samples || []).length === 0 && (
+                <div className="col-span-2 text-center py-8 bg-gray-50 rounded-md">
+                  <Droplets className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-500">
+                    No water samples for this farm
+                  </p>
+                </div>
+              )}
             </div>
           </TabsContent>
 
@@ -270,30 +377,41 @@ export default function FarmDetailPage({ params }: { params: { id: string } }) {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              {farm.pestReports.map((report) => (
+              {(farm.pest_disease_reports || []).map((report: any) => (
                 <Card key={report.id}>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gray-50 border-b">
-                    <CardTitle className="text-md font-medium">{report.name}</CardTitle>
+                    <CardTitle className="text-md font-medium">
+                      {report.name}
+                    </CardTitle>
                     <Bug className="h-4 w-4 text-green-600" />
                   </CardHeader>
                   <CardContent className="pt-4">
                     <div className="space-y-4">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">Date:</span>
-                        <span className="text-sm font-medium">{report.date}</span>
+                        <span className="text-sm text-muted-foreground">
+                          Date:
+                        </span>
+                        <span className="text-sm font-medium">
+                          {report.date || report.created_at}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">Severity:</span>
+                        <span className="text-sm text-muted-foreground">
+                          Severity:
+                        </span>
                         <Badge
                           className={`${
                             report.severity === "high"
                               ? "bg-red-100 text-red-800"
                               : report.severity === "medium"
-                                ? "bg-amber-100 text-amber-800"
-                                : "bg-green-100 text-green-800"
+                              ? "bg-amber-100 text-amber-800"
+                              : "bg-green-100 text-green-800"
                           } hover:bg-opacity-90`}
                         >
-                          {report.severity.charAt(0).toUpperCase() + report.severity.slice(1)}
+                          {report.severity
+                            ? report.severity.charAt(0).toUpperCase() +
+                              report.severity.slice(1)
+                            : "-"}
                         </Badge>
                       </div>
                       <Link href={`/pests/${report.id}`}>
@@ -306,10 +424,12 @@ export default function FarmDetailPage({ params }: { params: { id: string } }) {
                   </CardContent>
                 </Card>
               ))}
-              {farm.pestReports.length === 0 && (
+              {(farm.pest_disease_reports || []).length === 0 && (
                 <div className="col-span-2 text-center py-8 bg-gray-50 rounded-md">
                   <Bug className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-500">No pest or disease reports for this farm</p>
+                  <p className="text-gray-500">
+                    No pest or disease reports for this farm
+                  </p>
                 </div>
               )}
             </div>
@@ -317,5 +437,5 @@ export default function FarmDetailPage({ params }: { params: { id: string } }) {
         </Tabs>
       </div>
     </MainLayout>
-  )
+  );
 }
