@@ -10,12 +10,16 @@ import {
   Plus,
   ArrowRight,
   FlaskRoundIcon as Flask,
+  Edit2,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import MainLayout from "@/components/layout/main-layout";
 import { SoilSampleForm } from "@/components/forms/soil-sample-form";
 import { WaterSampleForm } from "@/components/forms/water-sample-form";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { soilSamplesApi, waterSamplesApi } from "@/services/api";
+import { getMediaUrl } from "@/lib/api-utils";
 
 export default function SamplingPage() {
   const [isSoilFormOpen, setIsSoilFormOpen] = useState(false);
@@ -24,6 +28,12 @@ export default function SamplingPage() {
   const [waterSamples, setWaterSamples] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Edit/Delete state
+  const [selectedSoilSample, setSelectedSoilSample] = useState<any>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [sampleToDelete, setSampleToDelete] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchSamples = async () => {
     setLoading(true);
@@ -54,8 +64,36 @@ export default function SamplingPage() {
 
   const handleSoilFormSuccess = () => {
     setIsSoilFormOpen(false);
+    setSelectedSoilSample(null);
     fetchSamples();
   };
+  
+  const handleEditSoilSample = (sample: any) => {
+    setSelectedSoilSample(sample);
+    setIsSoilFormOpen(true);
+  };
+
+  const handleDeleteSoilSample = (sample: any) => {
+    setSampleToDelete(sample);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteSample = async () => {
+    if (!sampleToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      await soilSamplesApi.delete(sampleToDelete.id);
+      fetchSamples();
+      setIsDeleteDialogOpen(false);
+      setSampleToDelete(null);
+    } catch (error) {
+      console.error("Failed to delete sample:", error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const handleWaterFormSuccess = () => {
     setIsWaterFormOpen(false);
     fetchSamples();
@@ -105,28 +143,35 @@ export default function SamplingPage() {
                   <Card key={sample.id} className="overflow-hidden">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gray-50 border-b">
                       <CardTitle className="text-md font-medium">
-                        Soil Sample #{sample.id}
+                        {sample.farm_name || "Unknown Farm"}
                       </CardTitle>
-                      <Flask className="h-4 w-4 text-green-600" />
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          {sample.sample_date ? new Date(sample.sample_date).toLocaleDateString() : "-"}
+                        </Badge>
+                        <Flask className="h-4 w-4 text-green-600" />
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleEditSoilSample(sample)}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-600 hover:text-red-700"
+                            onClick={() => handleDeleteSoilSample(sample)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
                     </CardHeader>
                     <CardContent className="pt-4">
                       <div className="space-y-4">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">
-                            Farm:
-                          </span>
-                          <span className="text-sm font-medium">
-                            {sample.farm_name}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">
-                            Date:
-                          </span>
-                          <span className="text-sm font-medium">
-                            {sample.sample_date}
-                          </span>
-                        </div>
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-muted-foreground">
                             pH:
@@ -143,30 +188,60 @@ export default function SamplingPage() {
                             {sample.pH}
                           </Badge>
                         </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">
-                            Moisture:
-                          </span>
-                          <span className="text-sm font-medium">
-                            {sample.moisture_pct}%
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">
-                            Nutrients:
-                          </span>
-                          <div className="flex space-x-2">
-                            <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
-                              N: {sample.nutrient_n}
-                            </Badge>
-                            <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">
-                              P: {sample.nutrient_p}
-                            </Badge>
-                            <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100">
-                              K: {sample.nutrient_k}
-                            </Badge>
+                        {sample.moisture_pct !== null && sample.moisture_pct !== undefined && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-muted-foreground">
+                              Moisture:
+                            </span>
+                            <span className="text-sm font-medium">
+                              {sample.moisture_pct}%
+                            </span>
                           </div>
-                        </div>
+                        )}
+                        {(sample.nutrient_n || sample.nutrient_p || sample.nutrient_k) && (
+                          <div className="space-y-2">
+                            <span className="text-sm text-muted-foreground">
+                              Nutrients (NPK):
+                            </span>
+                            <div className="flex gap-2">
+                              {sample.nutrient_n && (
+                                <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
+                                  N: {sample.nutrient_n}
+                                </Badge>
+                              )}
+                              {sample.nutrient_p && (
+                                <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">
+                                  P: {sample.nutrient_p}
+                                </Badge>
+                              )}
+                              {sample.nutrient_k && (
+                                <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100">
+                                  K: {sample.nutrient_k}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {sample.notes && (
+                          <div>
+                            <span className="text-sm text-muted-foreground">
+                              Notes:
+                            </span>
+                            <p className="text-sm mt-1">{sample.notes}</p>
+                          </div>
+                        )}
+                        {sample.photo && (
+                          <div className="mt-3 -mx-4 -mb-4">
+                            <img
+                              src={getMediaUrl(sample.photo)}
+                              alt="Soil sample"
+                              className="w-full h-32 object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                              }}
+                            />
+                          </div>
+                        )}
                         {/* <Link href={`/sampling/soil/${sample.id}`}>
                           <Button variant="outline" className="w-full">
                             View Details
@@ -177,6 +252,19 @@ export default function SamplingPage() {
                     </CardContent>
                   </Card>
                 ))}
+                {soilSamples.length === 0 && (
+                  <div className="col-span-full text-center py-12 bg-gray-50 rounded-md">
+                    <Flask className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                    <p className="text-gray-500 mb-4">No soil samples yet</p>
+                    <Button
+                      className="bg-green-600 hover:bg-green-700"
+                      onClick={() => setIsSoilFormOpen(true)}
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add First Sample
+                    </Button>
+                  </div>
+                )}
               </div>
             </TabsContent>
 
@@ -264,8 +352,12 @@ export default function SamplingPage() {
         {/* Soil Sample Form Modal */}
         <SoilSampleForm
           isOpen={isSoilFormOpen}
-          onClose={() => setIsSoilFormOpen(false)}
+          onClose={() => {
+            setIsSoilFormOpen(false);
+            setSelectedSoilSample(null);
+          }}
           onSuccess={handleSoilFormSuccess}
+          sample={selectedSoilSample}
         />
 
         {/* Water Sample Form Modal */}
@@ -273,6 +365,20 @@ export default function SamplingPage() {
           isOpen={isWaterFormOpen}
           onClose={() => setIsWaterFormOpen(false)}
           onSuccess={handleWaterFormSuccess}
+        />
+
+        {/* Delete Confirmation Dialog */}
+        <ConfirmDialog
+          isOpen={isDeleteDialogOpen}
+          onClose={() => {
+            setIsDeleteDialogOpen(false);
+            setSampleToDelete(null);
+          }}
+          onConfirm={confirmDeleteSample}
+          title="Delete Soil Sample"
+          description="Are you sure you want to delete this soil sample? This action cannot be undone."
+          confirmText={isDeleting ? "Deleting..." : "Delete"}
+          isDestructive
         />
       </div>
     </MainLayout>

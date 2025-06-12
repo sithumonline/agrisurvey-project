@@ -24,10 +24,15 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import MainLayout from "@/components/layout/main-layout";
-import { farmsApi, cropsApi } from "@/services/api";
+import { farmsApi, cropsApi, soilSamplesApi } from "@/services/api";
 import { CropForm } from "@/components/forms/crop-form";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FarmForm } from "@/components/forms/farm-form";
+import { SoilSampleForm } from "@/components/forms/soil-sample-form";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { getMediaUrl } from "@/lib/api-utils";
+import { useRouter } from "next/navigation";
 
 export default function FarmDetailPage({
   params,
@@ -49,6 +54,13 @@ export default function FarmDetailPage({
   
   // Farm edit state
   const [isFarmFormOpen, setIsFarmFormOpen] = useState(false);
+  
+  // Soil sample state
+  const [isSoilSampleFormOpen, setIsSoilSampleFormOpen] = useState(false);
+  const [selectedSoilSample, setSelectedSoilSample] = useState<any>(null);
+  const [isSoilDeleteDialogOpen, setIsSoilDeleteDialogOpen] = useState(false);
+  const [soilSampleToDelete, setSoilSampleToDelete] = useState<any>(null);
+  const [isDeletingSoil, setIsDeletingSoil] = useState(false);
 
   const fetchFarmDetails = () => {
     setLoading(true);
@@ -111,6 +123,39 @@ export default function FarmDetailPage({
     setIsFarmFormOpen(false);
     // Refresh farm details to show updates
     fetchFarmDetails();
+  };
+
+  const handleSoilSampleSuccess = () => {
+    setIsSoilSampleFormOpen(false);
+    setSelectedSoilSample(null);
+    // Refresh farm details to show new sample
+    fetchFarmDetails();
+  };
+
+  const handleEditSoilSample = (sample: any) => {
+    setSelectedSoilSample(sample);
+    setIsSoilSampleFormOpen(true);
+  };
+
+  const handleDeleteSoilSample = (sample: any) => {
+    setSoilSampleToDelete(sample);
+    setIsSoilDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteSoilSample = async () => {
+    if (!soilSampleToDelete) return;
+    
+    setIsDeletingSoil(true);
+    try {
+      await soilSamplesApi.delete(soilSampleToDelete.id);
+      fetchFarmDetails(); // Refresh the farm details
+      setIsSoilDeleteDialogOpen(false);
+      setSoilSampleToDelete(null);
+    } catch (error) {
+      console.error("Failed to delete soil sample:", error);
+    } finally {
+      setIsDeletingSoil(false);
+    }
   };
 
   if (loading) {
@@ -329,7 +374,10 @@ export default function FarmDetailPage({
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-medium">Soil & Water Samples</h3>
               <div className="flex space-x-2">
-                <Button className="bg-green-600 hover:bg-green-700">
+                <Button 
+                  className="bg-green-600 hover:bg-green-700"
+                  onClick={() => setIsSoilSampleFormOpen(true)}
+                >
                   <Plus className="mr-2 h-4 w-4" />
                   New Soil Sample
                 </Button>
@@ -346,19 +394,37 @@ export default function FarmDetailPage({
                 <Card key={sample.id}>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gray-50 border-b">
                     <CardTitle className="text-md font-medium">
-                      Soil Sample #{sample.id}
+                      Soil Sample
                     </CardTitle>
+                    <div className="flex items-center gap-2">
+                      <Badge 
+                        variant="outline" 
+                        className="text-xs"
+                      >
+                        {sample.sample_date ? new Date(sample.sample_date).toLocaleDateString() : "No date"}
+                      </Badge>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => handleEditSoilSample(sample)}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-600 hover:text-red-700"
+                          onClick={() => handleDeleteSoilSample(sample)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
                   </CardHeader>
                   <CardContent className="pt-4">
                     <div className="space-y-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">
-                          Date:
-                        </span>
-                        <span className="text-sm font-medium">
-                          {sample.date || sample.created_at}
-                        </span>
-                      </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-muted-foreground">
                           pH:
@@ -375,20 +441,48 @@ export default function FarmDetailPage({
                           {sample.pH}
                         </Badge>
                       </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">
-                          Moisture:
-                        </span>
-                        <span className="text-sm font-medium">
-                          {sample.moisture}%
-                        </span>
-                      </div>
-                      <Link href={`/sampling/soil/${sample.id}`}>
+                      {sample.moisture_pct !== null && sample.moisture_pct !== undefined && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-muted-foreground">
+                            Moisture:
+                          </span>
+                          <span className="text-sm font-medium">
+                            {sample.moisture_pct}%
+                          </span>
+                        </div>
+                      )}
+                      {(sample.nutrient_n || sample.nutrient_p || sample.nutrient_k) && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-muted-foreground">
+                            NPK:
+                          </span>
+                          <span className="text-sm font-medium">
+                            {[
+                              sample.nutrient_n && `N:${sample.nutrient_n}`,
+                              sample.nutrient_p && `P:${sample.nutrient_p}`,
+                              sample.nutrient_k && `K:${sample.nutrient_k}`
+                            ].filter(Boolean).join(" ")}
+                          </span>
+                        </div>
+                      )}
+                      {sample.photo && (
+                        <div className="mt-2">
+                          <img
+                            src={getMediaUrl(sample.photo)}
+                            alt="Soil sample"
+                            className="w-full h-32 object-cover rounded"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      )}
+                      {/* <Link href={`/sampling/soil/${sample.id}`}>
                         <Button variant="outline" className="w-full mt-2">
                           View Details
                           <ArrowRight className="ml-2 h-4 w-4" />
                         </Button>
-                      </Link>
+                      </Link> */}
                     </div>
                   </CardContent>
                 </Card>
@@ -397,6 +491,13 @@ export default function FarmDetailPage({
                 <div className="col-span-2 text-center py-8 bg-gray-50 rounded-md">
                   <Droplets className="h-8 w-8 text-gray-400 mx-auto mb-2" />
                   <p className="text-gray-500">No soil samples for this farm</p>
+                  <Button 
+                    className="mt-4 bg-green-600 hover:bg-green-700"
+                    onClick={() => setIsSoilSampleFormOpen(true)}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add First Sample
+                  </Button>
                 </div>
               )}
             </div>
@@ -567,6 +668,32 @@ export default function FarmDetailPage({
           onClose={() => setIsFarmFormOpen(false)}
           onSuccess={handleFarmFormSuccess}
           farmData={farm}
+        />
+
+        {/* Soil Sample Form Modal */}
+        <SoilSampleForm
+          isOpen={isSoilSampleFormOpen}
+          onClose={() => {
+            setIsSoilSampleFormOpen(false);
+            setSelectedSoilSample(null);
+          }}
+          onSuccess={handleSoilSampleSuccess}
+          farmId={id}
+          sample={selectedSoilSample}
+        />
+
+        {/* Soil Sample Delete Confirmation Dialog */}
+        <ConfirmDialog
+          isOpen={isSoilDeleteDialogOpen}
+          onClose={() => {
+            setIsSoilDeleteDialogOpen(false);
+            setSoilSampleToDelete(null);
+          }}
+          onConfirm={confirmDeleteSoilSample}
+          title="Delete Soil Sample"
+          description={`Are you sure you want to delete this soil sample? This action cannot be undone.`}
+          confirmText={isDeletingSoil ? "Deleting..." : "Delete"}
+          isDestructive
         />
       </div>
     </MainLayout>

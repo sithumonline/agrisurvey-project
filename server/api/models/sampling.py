@@ -37,23 +37,35 @@ class SoilSample(models.Model):
     nutrient_n = models.DecimalField(
         max_digits=6,
         decimal_places=2,
+        validators=[
+            MinValueValidator(0),
+            MaxValueValidator(999)
+        ],
         blank=True,
         null=True,
-        help_text="Nitrogen level"
+        help_text="Nitrogen level (0-999)"
     )
     nutrient_p = models.DecimalField(
         max_digits=6,
         decimal_places=2,
+        validators=[
+            MinValueValidator(0),
+            MaxValueValidator(999)
+        ],
         blank=True,
         null=True,
-        help_text="Phosphorus level"
+        help_text="Phosphorus level (0-999)"
     )
     nutrient_k = models.DecimalField(
         max_digits=6,
         decimal_places=2,
+        validators=[
+            MinValueValidator(0),
+            MaxValueValidator(999)
+        ],
         blank=True,
         null=True,
-        help_text="Potassium level"
+        help_text="Potassium level (0-999)"
     )
     notes = models.TextField(blank=True, null=True)
     photo = models.ImageField(

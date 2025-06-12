@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -11,20 +12,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Upload } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { ModalForm } from "@/components/ui/modal-form";
+import { PhotoUpload } from "@/components/ui/photo-upload";
 import { soilSamplesApi, farmsApi } from "@/services/api";
 
 interface SoilSampleFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  farmId?: string; // Allow pre-selecting farm
+  sample?: any; // For editing existing sample
 }
 
 export function SoilSampleForm({
   isOpen,
   onClose,
   onSuccess,
+  farmId: defaultFarmId,
+  sample,
 }: SoilSampleFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
@@ -36,53 +42,182 @@ export function SoilSampleForm({
     nutrientP: "",
     nutrientK: "",
     notes: "",
+    photo: null as File | null,
   });
   const [farms, setFarms] = useState<any[]>([]);
   const [loadingFarms, setLoadingFarms] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (!isOpen) return;
-    setLoadingFarms(true);
-    farmsApi
-      .getAll()
-      .then((res) => {
-        const data = Array.isArray(res.data) ? res.data : res.data.results;
-        setFarms(data || []);
-        setLoadingFarms(false);
-      })
-      .catch(() => {
-        setError("Failed to load farms");
-        setLoadingFarms(false);
+    if (!isOpen) {
+      // Reset form when closed
+      setFormData({
+        farmId: "",
+        sampleDate: "",
+        pH: "",
+        moisturePct: "",
+        nutrientN: "",
+        nutrientP: "",
+        nutrientK: "",
+        notes: "",
+        photo: null,
       });
-  }, [isOpen]);
+      setValidationErrors({});
+      setError(null);
+    } else {
+      // If editing, populate form with existing data
+      if (sample) {
+        setFormData({
+          farmId: sample.farm || defaultFarmId || "",
+          sampleDate: sample.sample_date || "",
+          pH: sample.pH?.toString() || "",
+          moisturePct: sample.moisture_pct?.toString() || "",
+          nutrientN: sample.nutrient_n?.toString() || "",
+          nutrientP: sample.nutrient_p?.toString() || "",
+          nutrientK: sample.nutrient_k?.toString() || "",
+          notes: sample.notes || "",
+          photo: null, // Don't pre-populate file
+        });
+      } else if (defaultFarmId) {
+        // Set default farm if provided
+        setFormData(prev => ({ ...prev, farmId: defaultFarmId }));
+      }
+      
+      // Load farms
+      setLoadingFarms(true);
+      farmsApi
+        .getAll()
+        .then((res) => {
+          const data = Array.isArray(res.data) ? res.data : res.data.results;
+          setFarms(data || []);
+          setLoadingFarms(false);
+        })
+        .catch(() => {
+          setError("Failed to load farms");
+          setLoadingFarms(false);
+        });
+    }
+  }, [isOpen, defaultFarmId, sample]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    // Clear validation error when user starts typing
+    if (validationErrors[name]) {
+      setValidationErrors((prev) => ({ ...prev, [name]: "" }));
+    }
   };
 
   const handleFarmChange = (value: string) => {
     setFormData((prev) => ({ ...prev, farmId: value }));
+    if (validationErrors.farmId) {
+      setValidationErrors((prev) => ({ ...prev, farmId: "" }));
+    }
+  };
+
+  const handlePhotoChange = (file: File | null) => {
+    setFormData((prev) => ({ ...prev, photo: file }));
+  };
+
+  const validateForm = () => {
+    const errors: Record<string, string> = {};
+
+    if (!formData.farmId) {
+      errors.farmId = "Farm is required";
+    }
+
+    if (!formData.sampleDate) {
+      errors.sampleDate = "Sample date is required";
+    }
+
+    if (!formData.pH) {
+      errors.pH = "pH level is required";
+    } else {
+      const pH = parseFloat(formData.pH);
+      if (isNaN(pH) || pH < 0 || pH > 14) {
+        errors.pH = "pH must be between 0 and 14";
+      }
+    }
+
+    if (formData.moisturePct) {
+      const moisture = parseFloat(formData.moisturePct);
+      if (isNaN(moisture) || moisture < 0 || moisture > 100) {
+        errors.moisturePct = "Moisture must be between 0 and 100%";
+      }
+    }
+
+    // Validate NPK values
+    if (formData.nutrientN) {
+      const n = parseFloat(formData.nutrientN);
+      if (isNaN(n) || n < 0 || n > 999) {
+        errors.nutrientN = "Nitrogen must be between 0 and 999";
+      }
+    }
+
+    if (formData.nutrientP) {
+      const p = parseFloat(formData.nutrientP);
+      if (isNaN(p) || p < 0 || p > 999) {
+        errors.nutrientP = "Phosphorus must be between 0 and 999";
+      }
+    }
+
+    if (formData.nutrientK) {
+      const k = parseFloat(formData.nutrientK);
+      if (isNaN(k) || k < 0 || k > 999) {
+        errors.nutrientK = "Potassium must be between 0 and 999";
+      }
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
+    
     try {
-      await soilSamplesApi.create({
-        farm: formData.farmId,
-        sample_date: formData.sampleDate,
-        pH: formData.pH,
-        moisture_pct: formData.moisturePct,
-        nutrient_n: formData.nutrientN,
-        nutrient_p: formData.nutrientP,
-        nutrient_k: formData.nutrientK,
-        notes: formData.notes,
-      });
+      const submitData = new FormData();
+      submitData.append("farm", formData.farmId);
+      submitData.append("sample_date", formData.sampleDate);
+      submitData.append("pH", formData.pH);
+      
+      if (formData.moisturePct) {
+        submitData.append("moisture_pct", formData.moisturePct);
+      }
+      if (formData.nutrientN) {
+        submitData.append("nutrient_n", formData.nutrientN);
+      }
+      if (formData.nutrientP) {
+        submitData.append("nutrient_p", formData.nutrientP);
+      }
+      if (formData.nutrientK) {
+        submitData.append("nutrient_k", formData.nutrientK);
+      }
+      if (formData.notes) {
+        submitData.append("notes", formData.notes);
+      }
+      if (formData.photo) {
+        submitData.append("photo", formData.photo);
+      }
+
+      if (sample) {
+        // Update existing sample
+        await soilSamplesApi.update(sample.id, submitData);
+      } else {
+        // Create new sample
+        await soilSamplesApi.create(submitData);
+      }
+      
       setIsSubmitting(false);
       if (onSuccess) {
         onSuccess();
@@ -90,28 +225,32 @@ export function SoilSampleForm({
         onClose();
       }
     } catch (err: any) {
-      setError("Failed to save soil sample");
+      setError(err.response?.data?.detail || "Failed to save soil sample");
       setIsSubmitting(false);
     }
   };
 
   return (
     <ModalForm
-      title="Add New Soil Sample"
+      title={sample ? "Edit Soil Sample" : "Add New Soil Sample"}
       description="Record soil sample data from the field"
       isOpen={isOpen}
       onClose={onClose}
     >
       <form onSubmit={handleSubmit} className="space-y-4 mt-4">
         <div className="space-y-2">
-          <Label htmlFor="farmId">Farm</Label>
+          <Label htmlFor="farmId">
+            Farm <span className="text-red-500">*</span>
+          </Label>
           <Select
             value={formData.farmId}
             onValueChange={handleFarmChange}
             disabled={loadingFarms}
-            required
           >
-            <SelectTrigger id="farmId">
+            <SelectTrigger 
+              id="farmId"
+              className={validationErrors.farmId ? "border-red-500" : ""}
+            >
               <SelectValue
                 placeholder={
                   loadingFarms ? "Loading farms..." : "Select a farm"
@@ -121,28 +260,39 @@ export function SoilSampleForm({
             <SelectContent>
               {farms.map((farm) => (
                 <SelectItem key={farm.id} value={farm.id}>
-                  {farm.name}
+                  {farm.name} - {farm.owner_name}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+          {validationErrors.farmId && (
+            <p className="text-sm text-red-500">{validationErrors.farmId}</p>
+          )}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="sampleDate">Sample Date</Label>
+          <Label htmlFor="sampleDate">
+            Sample Date <span className="text-red-500">*</span>
+          </Label>
           <Input
             id="sampleDate"
             name="sampleDate"
             type="date"
             value={formData.sampleDate}
             onChange={handleChange}
-            required
+            className={validationErrors.sampleDate ? "border-red-500" : ""}
+            max={new Date().toISOString().split('T')[0]} // Can't be in the future
           />
+          {validationErrors.sampleDate && (
+            <p className="text-sm text-red-500">{validationErrors.sampleDate}</p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="pH">pH Level</Label>
+            <Label htmlFor="pH">
+              pH Level <span className="text-red-500">*</span>
+            </Label>
             <Input
               id="pH"
               name="pH"
@@ -153,8 +303,11 @@ export function SoilSampleForm({
               placeholder="6.8"
               value={formData.pH}
               onChange={handleChange}
-              required
+              className={validationErrors.pH ? "border-red-500" : ""}
             />
+            {validationErrors.pH && (
+              <p className="text-sm text-red-500">{validationErrors.pH}</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -169,8 +322,11 @@ export function SoilSampleForm({
               placeholder="42"
               value={formData.moisturePct}
               onChange={handleChange}
-              required
+              className={validationErrors.moisturePct ? "border-red-500" : ""}
             />
+            {validationErrors.moisturePct && (
+              <p className="text-sm text-red-500">{validationErrors.moisturePct}</p>
+            )}
           </div>
         </div>
 
@@ -185,11 +341,17 @@ export function SoilSampleForm({
                 id="nutrientN"
                 name="nutrientN"
                 type="number"
+                step="0.1"
                 min="0"
+                max="999"
                 placeholder="15"
                 value={formData.nutrientN}
                 onChange={handleChange}
+                className={validationErrors.nutrientN ? "border-red-500" : ""}
               />
+              {validationErrors.nutrientN && (
+                <p className="text-xs text-red-500 mt-1">{validationErrors.nutrientN}</p>
+              )}
             </div>
             <div>
               <Label htmlFor="nutrientP" className="text-xs">
@@ -199,11 +361,17 @@ export function SoilSampleForm({
                 id="nutrientP"
                 name="nutrientP"
                 type="number"
+                step="0.1"
                 min="0"
+                max="999"
                 placeholder="8"
                 value={formData.nutrientP}
                 onChange={handleChange}
+                className={validationErrors.nutrientP ? "border-red-500" : ""}
               />
+              {validationErrors.nutrientP && (
+                <p className="text-xs text-red-500 mt-1">{validationErrors.nutrientP}</p>
+              )}
             </div>
             <div>
               <Label htmlFor="nutrientK" className="text-xs">
@@ -213,25 +381,38 @@ export function SoilSampleForm({
                 id="nutrientK"
                 name="nutrientK"
                 type="number"
+                step="0.1"
                 min="0"
+                max="999"
                 placeholder="12"
                 value={formData.nutrientK}
                 onChange={handleChange}
+                className={validationErrors.nutrientK ? "border-red-500" : ""}
               />
+              {validationErrors.nutrientK && (
+                <p className="text-xs text-red-500 mt-1">{validationErrors.nutrientK}</p>
+              )}
             </div>
           </div>
         </div>
 
-        {/* File upload and notes fields can be implemented as needed */}
+        <div className="space-y-2">
+          <Label>Sample Photo</Label>
+          <PhotoUpload
+            value={formData.photo}
+            onPhotoChange={handlePhotoChange}
+          />
+        </div>
 
         <div className="space-y-2">
           <Label htmlFor="notes">Notes</Label>
-          <Input
+          <Textarea
             id="notes"
             name="notes"
-            placeholder="Additional observations"
+            placeholder="Additional observations about the soil sample"
             value={formData.notes}
             onChange={handleChange}
+            rows={3}
           />
         </div>
 
@@ -246,10 +427,10 @@ export function SoilSampleForm({
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
+                {sample ? "Updating..." : "Saving..."}
               </>
             ) : (
-              "Save Sample"
+              sample ? "Update Sample" : "Save Sample"
             )}
           </Button>
         </div>

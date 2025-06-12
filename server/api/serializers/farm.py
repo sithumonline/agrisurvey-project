@@ -67,13 +67,19 @@ class FarmSerializer(serializers.ModelSerializer):
         return obj.pest_disease_reports.count()
 
 
+# Import these only when needed to avoid circular imports
+from api.serializers.sampling import SoilSampleSerializer, WaterSampleSerializer
+
+
 class FarmDetailSerializer(FarmSerializer):
     """Serializer for detailed Farm model view"""
 
     crops = CropSerializer(many=True, read_only=True)
+    soil_samples = SoilSampleSerializer(many=True, read_only=True)
+    water_samples = WaterSampleSerializer(many=True, read_only=True)
 
     class Meta(FarmSerializer.Meta):
-        pass
+        fields = FarmSerializer.Meta.fields + ['soil_samples', 'water_samples']
 
 
 class FarmCreateUpdateSerializer(serializers.ModelSerializer):
@@ -92,7 +98,7 @@ class FarmCreateUpdateSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if request and hasattr(request, 'user'):
             user = request.user
-            if user.is_enumerator and value.assigned_to != user:
+            if hasattr(user, 'is_enumerator') and user.is_enumerator and value.assigned_to != user:
                 raise serializers.ValidationError("You can only create farms for your assigned routes.")
         return value
     
