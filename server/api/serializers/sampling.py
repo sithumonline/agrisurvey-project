@@ -90,6 +90,12 @@ class WaterSampleSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("pH must be between 0 and 14")
         return value
 
+    def validate_turbidity(self, value):
+        """Validate turbidity is non-negative"""
+        if value is not None and value < 0:
+            raise serializers.ValidationError("Turbidity must be 0 or greater")
+        return value
+
     def validate_farm(self, value):
         """Ensure the farm belongs to a route assigned to the current user if they're an enumerator"""
         request = self.context.get('request')
@@ -106,20 +112,8 @@ class WaterSampleSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Sample date cannot be in the future")
         return value
 
-    def validate_nutrient_n(self, value):
-        """Validate nitrogen level is within reasonable range"""
-        if value is not None and (value < 0 or value > 999):
-            raise serializers.ValidationError("Nitrogen level must be between 0 and 999")
-        return value
-
-    def validate_nutrient_p(self, value):
-        """Validate phosphorus level is within reasonable range"""
-        if value is not None and (value < 0 or value > 999):
-            raise serializers.ValidationError("Phosphorus level must be between 0 and 999")
-        return value
-
-    def validate_nutrient_k(self, value):
-        """Validate potassium level is within reasonable range"""
-        if value is not None and (value < 0 or value > 999):
-            raise serializers.ValidationError("Potassium level must be between 0 and 999")
+    def validate_source(self, value):
+        """Ensure water source is not empty"""
+        if not value or not value.strip():
+            raise serializers.ValidationError("Water source is required")
         return value

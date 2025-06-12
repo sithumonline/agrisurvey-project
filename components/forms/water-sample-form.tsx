@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -11,20 +12,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Upload } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { ModalForm } from "@/components/ui/modal-form";
+import { PhotoUpload } from "@/components/ui/photo-upload";
 import { waterSamplesApi, farmsApi } from "@/services/api";
 
 interface WaterSampleFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  farmId?: string; // Allow pre-selecting farm
+  sample?: any; // For editing existing sample
 }
 
 export function WaterSampleForm({
   isOpen,
   onClose,
   onSuccess,
+  farmId: defaultFarmId,
+  sample,
 }: WaterSampleFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
@@ -34,51 +40,152 @@ export function WaterSampleForm({
     pH: "",
     turbidity: "",
     notes: "",
+    photo: null as File | null,
   });
   const [farms, setFarms] = useState<any[]>([]);
   const [loadingFarms, setLoadingFarms] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (!isOpen) return;
-    setLoadingFarms(true);
-    farmsApi
-      .getAll()
-      .then((res) => {
-        const data = Array.isArray(res.data) ? res.data : res.data.results;
-        setFarms(data || []);
-        setLoadingFarms(false);
-      })
-      .catch(() => {
-        setError("Failed to load farms");
-        setLoadingFarms(false);
+    if (!isOpen) {
+      // Reset form when closed
+      setFormData({
+        farmId: "",
+        sampleDate: "",
+        source: "",
+        pH: "",
+        turbidity: "",
+        notes: "",
+        photo: null,
       });
-  }, [isOpen]);
+      setValidationErrors({});
+      setError(null);
+    } else {
+      // If editing, populate form with existing data
+      if (sample) {
+        setFormData({
+          farmId: sample.farm || defaultFarmId || "",
+          sampleDate: sample.sample_date || "",
+          source: sample.source || "",
+          pH: sample.pH?.toString() || "",
+          turbidity: sample.turbidity?.toString() || "",
+          notes: sample.notes || "",
+          photo: null, // Don't pre-populate file
+        });
+      } else if (defaultFarmId) {
+        // Set default farm if provided
+        setFormData(prev => ({ ...prev, farmId: defaultFarmId }));
+      }
+      
+      // Load farms
+      setLoadingFarms(true);
+      farmsApi
+        .getAll()
+        .then((res) => {
+          const data = Array.isArray(res.data) ? res.data : res.data.results;
+          setFarms(data || []);
+          setLoadingFarms(false);
+        })
+        .catch(() => {
+          setError("Failed to load farms");
+          setLoadingFarms(false);
+        });
+    }
+  }, [isOpen, defaultFarmId, sample]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    // Clear validation error when user starts typing
+    if (validationErrors[name]) {
+      setValidationErrors((prev) => ({ ...prev, [name]: "" }));
+    }
   };
 
   const handleFarmChange = (value: string) => {
     setFormData((prev) => ({ ...prev, farmId: value }));
+    if (validationErrors.farmId) {
+      setValidationErrors((prev) => ({ ...prev, farmId: "" }));
+    }
+  };
+
+  const handlePhotoChange = (file: File | null) => {
+    setFormData((prev) => ({ ...prev, photo: file }));
+  };
+
+  const validateForm = () => {
+    const errors: Record<string, string> = {};
+
+    if (!formData.farmId) {
+      errors.farmId = "Farm is required";
+    }
+
+    if (!formData.sampleDate) {
+      errors.sampleDate = "Sample date is required";
+    }
+
+    if (!formData.source) {
+      errors.source = "Water source is required";
+    }
+
+    if (!formData.pH) {
+      errors.pH = "pH level is required";
+    } else {
+      const pH = parseFloat(formData.pH);
+      if (isNaN(pH) || pH < 0 || pH > 14) {
+        errors.pH = "pH must be between 0 and 14";
+      }
+    }
+
+    if (formData.turbidity) {
+      const turbidity = parseFloat(formData.turbidity);
+      if (isNaN(turbidity) || turbidity < 0) {
+        errors.turbidity = "Turbidity must be 0 or greater";
+      }
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
+    
     try {
-      await waterSamplesApi.create({
-        farm: formData.farmId,
-        sample_date: formData.sampleDate, // <-- required field
-        source: formData.source,
-        pH: formData.pH,
-        turbidity: formData.turbidity,
-        notes: formData.notes,
-      });
+      const submitData = new FormData();
+      submitData.append("farm", formData.farmId);
+      submitData.append("sample_date", formData.sampleDate);
+      submitData.append("source", formData.source);
+      submitData.append("pH", formData.pH);
+      
+      if (formData.turbidity) {
+        submitData.append("turbidity", formData.turbidity);
+      }
+      if (formData.notes) {
+        submitData.append("notes", formData.notes);
+      }
+      if (formData.photo) {
+        submitData.append("photo", formData.photo);
+      }
+
+      if (sample) {
+        // Update existing sample
+        await waterSamplesApi.update(sample.id, submitData);
+      } else {
+        // Create new sample
+        await waterSamplesApi.create(submitData);
+      }
+      
       setIsSubmitting(false);
       if (onSuccess) {
         onSuccess();
@@ -86,28 +193,32 @@ export function WaterSampleForm({
         onClose();
       }
     } catch (err: any) {
-      setError("Failed to save water sample");
+      setError(err.response?.data?.detail || "Failed to save water sample");
       setIsSubmitting(false);
     }
   };
 
   return (
     <ModalForm
-      title="Add New Water Sample"
+      title={sample ? "Edit Water Sample" : "Add New Water Sample"}
       description="Record water sample data from the field"
       isOpen={isOpen}
       onClose={onClose}
     >
       <form onSubmit={handleSubmit} className="space-y-4 mt-4">
         <div className="space-y-2">
-          <Label htmlFor="farmId">Farm</Label>
+          <Label htmlFor="farmId">
+            Farm <span className="text-red-500">*</span>
+          </Label>
           <Select
             value={formData.farmId}
             onValueChange={handleFarmChange}
             disabled={loadingFarms}
-            required
           >
-            <SelectTrigger id="farmId">
+            <SelectTrigger 
+              id="farmId"
+              className={validationErrors.farmId ? "border-red-500" : ""}
+            >
               <SelectValue
                 placeholder={
                   loadingFarms ? "Loading farms..." : "Select a farm"
@@ -117,40 +228,56 @@ export function WaterSampleForm({
             <SelectContent>
               {farms.map((farm) => (
                 <SelectItem key={farm.id} value={farm.id}>
-                  {farm.name}
+                  {farm.name} - {farm.owner_name}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+          {validationErrors.farmId && (
+            <p className="text-sm text-red-500">{validationErrors.farmId}</p>
+          )}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="sampleDate">Sample Date</Label>
+          <Label htmlFor="sampleDate">
+            Sample Date <span className="text-red-500">*</span>
+          </Label>
           <Input
             id="sampleDate"
             name="sampleDate"
             type="date"
             value={formData.sampleDate}
             onChange={handleChange}
-            required
+            className={validationErrors.sampleDate ? "border-red-500" : ""}
+            max={new Date().toISOString().split('T')[0]} // Can't be in the future
           />
+          {validationErrors.sampleDate && (
+            <p className="text-sm text-red-500">{validationErrors.sampleDate}</p>
+          )}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="source">Water Source</Label>
+          <Label htmlFor="source">
+            Water Source <span className="text-red-500">*</span>
+          </Label>
           <Input
             id="source"
             name="source"
             placeholder="River, Irrigation Canal, Well, etc."
             value={formData.source}
             onChange={handleChange}
-            required
+            className={validationErrors.source ? "border-red-500" : ""}
           />
+          {validationErrors.source && (
+            <p className="text-sm text-red-500">{validationErrors.source}</p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="pH">pH Level</Label>
+            <Label htmlFor="pH">
+              pH Level <span className="text-red-500">*</span>
+            </Label>
             <Input
               id="pH"
               name="pH"
@@ -161,8 +288,11 @@ export function WaterSampleForm({
               placeholder="7.1"
               value={formData.pH}
               onChange={handleChange}
-              required
+              className={validationErrors.pH ? "border-red-500" : ""}
             />
+            {validationErrors.pH && (
+              <p className="text-sm text-red-500">{validationErrors.pH}</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -173,22 +303,35 @@ export function WaterSampleForm({
               type="number"
               step="0.1"
               min="0"
+              max="10000"
               placeholder="12"
               value={formData.turbidity}
               onChange={handleChange}
-              required
+              className={validationErrors.turbidity ? "border-red-500" : ""}
             />
+            {validationErrors.turbidity && (
+              <p className="text-sm text-red-500">{validationErrors.turbidity}</p>
+            )}
           </div>
         </div>
 
         <div className="space-y-2">
+          <Label>Sample Photo</Label>
+          <PhotoUpload
+            value={formData.photo}
+            onPhotoChange={handlePhotoChange}
+          />
+        </div>
+
+        <div className="space-y-2">
           <Label htmlFor="notes">Notes</Label>
-          <Input
+          <Textarea
             id="notes"
             name="notes"
-            placeholder="Additional observations"
+            placeholder="Additional observations about the water sample"
             value={formData.notes}
             onChange={handleChange}
+            rows={3}
           />
         </div>
 
@@ -203,10 +346,10 @@ export function WaterSampleForm({
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
+                {sample ? "Updating..." : "Saving..."}
               </>
             ) : (
-              "Save Sample"
+              sample ? "Update Sample" : "Save Sample"
             )}
           </Button>
         </div>

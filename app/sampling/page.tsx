@@ -34,6 +34,12 @@ export default function SamplingPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [sampleToDelete, setSampleToDelete] = useState<any>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Water sample edit/delete state
+  const [selectedWaterSample, setSelectedWaterSample] = useState<any>(null);
+  const [isWaterDeleteDialogOpen, setIsWaterDeleteDialogOpen] = useState(false);
+  const [waterSampleToDelete, setWaterSampleToDelete] = useState<any>(null);
+  const [isDeletingWater, setIsDeletingWater] = useState(false);
 
   const fetchSamples = async () => {
     setLoading(true);
@@ -96,7 +102,34 @@ export default function SamplingPage() {
 
   const handleWaterFormSuccess = () => {
     setIsWaterFormOpen(false);
+    setSelectedWaterSample(null);
     fetchSamples();
+  };
+  
+  const handleEditWaterSample = (sample: any) => {
+    setSelectedWaterSample(sample);
+    setIsWaterFormOpen(true);
+  };
+
+  const handleDeleteWaterSample = (sample: any) => {
+    setWaterSampleToDelete(sample);
+    setIsWaterDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteWaterSample = async () => {
+    if (!waterSampleToDelete) return;
+    
+    setIsDeletingWater(true);
+    try {
+      await waterSamplesApi.delete(waterSampleToDelete.id);
+      fetchSamples();
+      setIsWaterDeleteDialogOpen(false);
+      setWaterSampleToDelete(null);
+    } catch (error) {
+      console.error("Failed to delete water sample:", error);
+    } finally {
+      setIsDeletingWater(false);
+    }
   };
 
   return (
@@ -274,34 +307,41 @@ export default function SamplingPage() {
                   <Card key={sample.id} className="overflow-hidden">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gray-50 border-b">
                       <CardTitle className="text-md font-medium">
-                        Water Sample #{sample.id}
+                        {sample.farm_name || "Unknown Farm"}
                       </CardTitle>
-                      <Droplets className="h-4 w-4 text-green-600" />
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          {sample.sample_date ? new Date(sample.sample_date).toLocaleDateString() : "-"}
+                        </Badge>
+                        <Droplets className="h-4 w-4 text-green-600" />
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleEditWaterSample(sample)}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-600 hover:text-red-700"
+                            onClick={() => handleDeleteWaterSample(sample)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
                     </CardHeader>
                     <CardContent className="pt-4">
                       <div className="space-y-4">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">
-                            Farm:
-                          </span>
-                          <span className="text-sm font-medium">
-                            {sample.farm_name}
-                          </span>
-                        </div>
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-muted-foreground">
                             Source:
                           </span>
                           <span className="text-sm font-medium">
                             {sample.source}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">
-                            Date:
-                          </span>
-                          <span className="text-sm font-medium">
-                            {sample.sample_date}
                           </span>
                         </div>
                         <div className="flex justify-between items-center">
@@ -320,20 +360,42 @@ export default function SamplingPage() {
                             {sample.pH}
                           </Badge>
                         </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">
-                            Turbidity:
-                          </span>
-                          <Badge
-                            className={`${
-                              sample.turbidity > 15
-                                ? "bg-amber-100 text-amber-800"
-                                : "bg-green-100 text-green-800"
-                            } hover:bg-opacity-90`}
-                          >
-                            {sample.turbidity} NTU
-                          </Badge>
-                        </div>
+                        {sample.turbidity !== null && sample.turbidity !== undefined && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-muted-foreground">
+                              Turbidity:
+                            </span>
+                            <Badge
+                              className={`${
+                                sample.turbidity > 15
+                                  ? "bg-amber-100 text-amber-800"
+                                  : "bg-green-100 text-green-800"
+                              } hover:bg-opacity-90`}
+                            >
+                              {sample.turbidity} NTU
+                            </Badge>
+                          </div>
+                        )}
+                        {sample.notes && (
+                          <div>
+                            <span className="text-sm text-muted-foreground">
+                              Notes:
+                            </span>
+                            <p className="text-sm mt-1">{sample.notes}</p>
+                          </div>
+                        )}
+                        {sample.photo && (
+                          <div className="mt-3 -mx-4 -mb-4">
+                            <img
+                              src={getMediaUrl(sample.photo)}
+                              alt="Water sample"
+                              className="w-full h-32 object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                              }}
+                            />
+                          </div>
+                        )}
                         {/* <Link href={`/sampling/water/${sample.id}`}>
                           <Button variant="outline" className="w-full">
                             View Details
@@ -344,6 +406,19 @@ export default function SamplingPage() {
                     </CardContent>
                   </Card>
                 ))}
+                {waterSamples.length === 0 && (
+                  <div className="col-span-full text-center py-12 bg-gray-50 rounded-md">
+                    <Droplets className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                    <p className="text-gray-500 mb-4">No water samples yet</p>
+                    <Button
+                      className="bg-green-600 hover:bg-green-700"
+                      onClick={() => setIsWaterFormOpen(true)}
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add First Sample
+                    </Button>
+                  </div>
+                )}
               </div>
             </TabsContent>
           </Tabs>
@@ -363,8 +438,12 @@ export default function SamplingPage() {
         {/* Water Sample Form Modal */}
         <WaterSampleForm
           isOpen={isWaterFormOpen}
-          onClose={() => setIsWaterFormOpen(false)}
+          onClose={() => {
+            setIsWaterFormOpen(false);
+            setSelectedWaterSample(null);
+          }}
           onSuccess={handleWaterFormSuccess}
+          sample={selectedWaterSample}
         />
 
         {/* Delete Confirmation Dialog */}
@@ -378,6 +457,20 @@ export default function SamplingPage() {
           title="Delete Soil Sample"
           description="Are you sure you want to delete this soil sample? This action cannot be undone."
           confirmText={isDeleting ? "Deleting..." : "Delete"}
+          isDestructive
+        />
+
+        {/* Water Sample Delete Confirmation Dialog */}
+        <ConfirmDialog
+          isOpen={isWaterDeleteDialogOpen}
+          onClose={() => {
+            setIsWaterDeleteDialogOpen(false);
+            setWaterSampleToDelete(null);
+          }}
+          onConfirm={confirmDeleteWaterSample}
+          title="Delete Water Sample"
+          description="Are you sure you want to delete this water sample? This action cannot be undone."
+          confirmText={isDeletingWater ? "Deleting..." : "Delete"}
           isDestructive
         />
       </div>
