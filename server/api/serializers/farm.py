@@ -13,6 +13,25 @@ class CropSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at']
+    
+    def validate(self, data):
+        """Validate that planting date is before or equal to harvest date"""
+        planting_date = data.get('planting_date')
+        expected_harvest = data.get('expected_harvest')
+        
+        # For updates, get existing values if not provided
+        if self.instance:
+            planting_date = planting_date or self.instance.planting_date
+            expected_harvest = expected_harvest or self.instance.expected_harvest
+        
+        # Only validate if both dates are present
+        if planting_date and expected_harvest:
+            if planting_date > expected_harvest:
+                raise serializers.ValidationError({
+                    'expected_harvest': 'Expected harvest date must be on or after planting date.'
+                })
+        
+        return data
 
 
 class FarmSerializer(serializers.ModelSerializer):

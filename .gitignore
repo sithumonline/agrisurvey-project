@@ -2,6 +2,7 @@
 /.idea/
 # dependencies
 /node_modules
+/server/media
 
 # next.js
 /.next/

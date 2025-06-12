@@ -18,10 +18,16 @@ import {
   Bug,
   Plus,
   ArrowRight,
+  Edit2,
+  Trash2,
+  Edit,
 } from "lucide-react";
 import Link from "next/link";
 import MainLayout from "@/components/layout/main-layout";
-import { farmsApi } from "@/services/api";
+import { farmsApi, cropsApi } from "@/services/api";
+import { CropForm } from "@/components/forms/crop-form";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { FarmForm } from "@/components/forms/farm-form";
 
 export default function FarmDetailPage({
   params,
@@ -33,8 +39,18 @@ export default function FarmDetailPage({
   const [farm, setFarm] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Crop form states
+  const [isCropFormOpen, setIsCropFormOpen] = useState(false);
+  const [selectedCrop, setSelectedCrop] = useState<any>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [cropToDelete, setCropToDelete] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Farm edit state
+  const [isFarmFormOpen, setIsFarmFormOpen] = useState(false);
 
-  useEffect(() => {
+  const fetchFarmDetails = () => {
     setLoading(true);
     farmsApi
       .getById(id)
@@ -46,7 +62,56 @@ export default function FarmDetailPage({
         setError("Failed to load farm details");
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchFarmDetails();
   }, [id]);
+
+  const handleAddCrop = () => {
+    setSelectedCrop(null);
+    setIsCropFormOpen(true);
+  };
+
+  const handleEditCrop = (crop: any) => {
+    setSelectedCrop(crop);
+    setIsCropFormOpen(true);
+  };
+
+  const handleDeleteCrop = (crop: any) => {
+    setCropToDelete(crop);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteCrop = async () => {
+    if (!cropToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      await cropsApi.delete(cropToDelete.id);
+      // Refresh farm details
+      fetchFarmDetails();
+      setIsDeleteDialogOpen(false);
+      setCropToDelete(null);
+    } catch (error) {
+      console.error("Failed to delete crop:", error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleCropFormSuccess = () => {
+    setIsCropFormOpen(false);
+    setSelectedCrop(null);
+    // Refresh farm details to show new/updated crop
+    fetchFarmDetails();
+  };
+
+  const handleFarmFormSuccess = () => {
+    setIsFarmFormOpen(false);
+    // Refresh farm details to show updates
+    fetchFarmDetails();
+  };
 
   if (loading) {
     return (
@@ -83,10 +148,14 @@ export default function FarmDetailPage({
               <p className="text-muted-foreground">Farm ID: {farm.id}</p>
             </div>
           </div>
-          {/* <Button className="mt-4 md:mt-0" variant="outline">
+          <Button 
+            className="mt-4 md:mt-0" 
+            variant="outline"
+            onClick={() => setIsFarmFormOpen(true)}
+          >
             <Edit className="mr-2 h-4 w-4" />
             Edit Farm
-          </Button> */}
+          </Button>
         </div>
 
         <Tabs
@@ -172,7 +241,10 @@ export default function FarmDetailPage({
           <TabsContent value="crops" className="space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-medium">Crops Information</h3>
-              <Button className="bg-green-600 hover:bg-green-700">
+              <Button 
+                className="bg-green-600 hover:bg-green-700"
+                onClick={handleAddCrop}
+              >
                 <Plus className="mr-2 h-4 w-4" />
                 Add Crop
               </Button>
@@ -185,7 +257,27 @@ export default function FarmDetailPage({
                     <CardTitle className="text-md font-medium">
                       {crop.crop_type}
                     </CardTitle>
-                    <Wheat className="h-4 w-4 text-green-600" />
+                    <div className="flex items-center gap-2">
+                      <Wheat className="h-4 w-4 text-green-600" />
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => handleEditCrop(crop)}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-600 hover:text-red-700"
+                          onClick={() => handleDeleteCrop(crop)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
                   </CardHeader>
                   <CardContent className="pt-4">
                     <div className="space-y-4">
@@ -194,7 +286,7 @@ export default function FarmDetailPage({
                           Variety:
                         </span>
                         <span className="text-sm font-medium">
-                          {crop.variety}
+                          {crop.variety || "-"}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
@@ -202,7 +294,7 @@ export default function FarmDetailPage({
                           Planting Date:
                         </span>
                         <span className="text-sm font-medium">
-                          {crop.planting_date}
+                          {crop.planting_date ? new Date(crop.planting_date).toLocaleDateString() : "-"}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
@@ -210,7 +302,7 @@ export default function FarmDetailPage({
                           Expected Harvest:
                         </span>
                         <span className="text-sm font-medium">
-                          {crop.expected_harvest}
+                          {crop.expected_harvest ? new Date(crop.expected_harvest).toLocaleDateString() : "-"}
                         </span>
                       </div>
                     </div>
@@ -221,6 +313,13 @@ export default function FarmDetailPage({
                 <div className="col-span-2 text-center py-8 bg-gray-50 rounded-md">
                   <Wheat className="h-8 w-8 text-gray-400 mx-auto mb-2" />
                   <p className="text-gray-500">No crops for this farm</p>
+                  <Button 
+                    className="mt-4 bg-green-600 hover:bg-green-700"
+                    onClick={handleAddCrop}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add First Crop
+                  </Button>
                 </div>
               )}
             </div>
@@ -435,6 +534,40 @@ export default function FarmDetailPage({
             </div>
           </TabsContent>
         </Tabs>
+        
+        {/* Crop Form Modal */}
+        <CropForm
+          isOpen={isCropFormOpen}
+          onClose={() => {
+            setIsCropFormOpen(false);
+            setSelectedCrop(null);
+          }}
+          onSuccess={handleCropFormSuccess}
+          farmId={id}
+          crop={selectedCrop}
+        />
+        
+        {/* Delete Confirmation Dialog */}
+        <ConfirmDialog
+          isOpen={isDeleteDialogOpen}
+          onClose={() => {
+            setIsDeleteDialogOpen(false);
+            setCropToDelete(null);
+          }}
+          onConfirm={confirmDeleteCrop}
+          title="Delete Crop"
+          description={`Are you sure you want to delete "${cropToDelete?.crop_type}"? This action cannot be undone.`}
+          confirmText={isDeleting ? "Deleting..." : "Delete"}
+          isDestructive
+        />
+
+        {/* Farm Form Modal */}
+        <FarmForm
+          isOpen={isFarmFormOpen}
+          onClose={() => setIsFarmFormOpen(false)}
+          onSuccess={handleFarmFormSuccess}
+          farmData={farm}
+        />
       </div>
     </MainLayout>
   );

@@ -23,9 +23,21 @@ interface FarmFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  farmData?: {
+    id?: string;
+    name: string;
+    owner_name: string;
+    size_ha: number | string;
+    address?: string;
+    location?: string;
+    latitude?: number | string | null;
+    longitude?: number | string | null;
+    photo?: string | null;
+    route?: string;
+  } | null;
 }
 
-export function FarmForm({ isOpen, onClose, onSuccess }: FarmFormProps) {
+export function FarmForm({ isOpen, onClose, onSuccess, farmData }: FarmFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -60,6 +72,23 @@ export function FarmForm({ isOpen, onClose, onSuccess }: FarmFormProps) {
       setValidationErrors({});
       setError(null);
     } else {
+      // If editing, populate form with existing data
+      if (farmData) {
+        setFormData({
+          name: farmData.name || "",
+          ownerName: farmData.owner_name || "",
+          sizeHa: farmData.size_ha?.toString() || "",
+          address: farmData.address || "",
+          location: farmData.location || "",
+          routeId: farmData.route || "",
+          latitude: typeof farmData.latitude === 'number' ? farmData.latitude : 
+                   farmData.latitude ? parseFloat(farmData.latitude.toString()) : null,
+          longitude: typeof farmData.longitude === 'number' ? farmData.longitude : 
+                    farmData.longitude ? parseFloat(farmData.longitude.toString()) : null,
+          photo: null, // Existing photo URL is handled separately
+        });
+      }
+      
       // Load routes when opened
       setLoadingRoutes(true);
       routesApi
@@ -74,7 +103,7 @@ export function FarmForm({ isOpen, onClose, onSuccess }: FarmFormProps) {
           setLoadingRoutes(false);
         });
     }
-  }, [isOpen]);
+  }, [isOpen, farmData]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -154,7 +183,13 @@ export function FarmForm({ isOpen, onClose, onSuccess }: FarmFormProps) {
         submitData.append("photo", formData.photo);
       }
 
-      await farmsApi.create(submitData);
+      if (farmData?.id) {
+        // Update existing farm
+        await farmsApi.update(farmData.id, submitData);
+      } else {
+        // Create new farm
+        await farmsApi.create(submitData);
+      }
       
       setIsSubmitting(false);
       if (onSuccess) {
@@ -170,8 +205,8 @@ export function FarmForm({ isOpen, onClose, onSuccess }: FarmFormProps) {
 
   return (
     <ModalForm
-      title="Add New Farm"
-      description="Register a new farm for surveying"
+      title={farmData ? "Edit Farm" : "Add New Farm"}
+      description={farmData ? "Update farm information" : "Register a new farm for surveying"}
       isOpen={isOpen}
       onClose={onClose}
     >
@@ -308,10 +343,10 @@ export function FarmForm({ isOpen, onClose, onSuccess }: FarmFormProps) {
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
+                {farmData ? "Updating..." : "Saving..."}
               </>
             ) : (
-              "Save Farm"
+              farmData ? "Update Farm" : "Save Farm"
             )}
           </Button>
         </div>
