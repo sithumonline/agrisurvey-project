@@ -28,9 +28,10 @@ class FarmSerializer(serializers.ModelSerializer):
         model = Farm
         fields = [
             'id', 'route', 'route_name', 'name', 'owner_name',
-            'size_ha', 'location', 'boundary_geo',
-            'crops', 'soil_sample_count', 'water_sample_count',
-            'pest_disease_count', 'created_at', 'updated_at'
+            'size_ha', 'address', 'location', 'latitude', 'longitude',
+            'photo', 'boundary_geo', 'crops', 'soil_sample_count', 
+            'water_sample_count', 'pest_disease_count', 
+            'created_at', 'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at']
 
@@ -63,7 +64,8 @@ class FarmCreateUpdateSerializer(serializers.ModelSerializer):
         model = Farm
         fields = [
             'id', 'route', 'name', 'owner_name',
-            'size_ha', 'location', 'boundary_geo'
+            'size_ha', 'address', 'location', 'latitude', 
+            'longitude', 'photo', 'boundary_geo'
         ]
 
     def validate_route(self, value):
@@ -73,4 +75,16 @@ class FarmCreateUpdateSerializer(serializers.ModelSerializer):
             user = request.user
             if user.is_enumerator and value.assigned_to != user:
                 raise serializers.ValidationError("You can only create farms for your assigned routes.")
+        return value
+    
+    def validate_address(self, value):
+        """Ensure address is not empty"""
+        if not value or not value.strip():
+            raise serializers.ValidationError("Address is required.")
+        return value
+    
+    def validate_size_ha(self, value):
+        """Ensure size is positive"""
+        if value <= 0:
+            raise serializers.ValidationError("Size must be greater than 0.")
         return value

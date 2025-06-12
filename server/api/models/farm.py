@@ -19,8 +19,32 @@ class Farm(models.Model):
         decimal_places=2,
         help_text="Size in hectares"
     )
+    address = models.CharField(
+        max_length=500,
+        help_text="Physical address of the farm"
+    )
     location = models.TextField(blank=True, null=True,
-                                help_text="Location description")
+                                help_text="Additional location description")
+    latitude = models.DecimalField(
+        max_digits=10,
+        decimal_places=7,
+        blank=True,
+        null=True,
+        help_text="GPS latitude coordinate"
+    )
+    longitude = models.DecimalField(
+        max_digits=10,
+        decimal_places=7,
+        blank=True,
+        null=True,
+        help_text="GPS longitude coordinate"
+    )
+    photo = models.ImageField(
+        upload_to='farms/photos/',
+        blank=True,
+        null=True,
+        help_text="Photo of the farm"
+    )
     boundary_geo = models.JSONField(
         blank=True,
         null=True,

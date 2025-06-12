@@ -13,11 +13,29 @@ import {
   Wheat,
   Coffee,
   Apple,
+  MapPin,
 } from "lucide-react";
 import Link from "next/link";
 import MainLayout from "@/components/layout/main-layout";
 import { FarmForm } from "@/components/forms/farm-form";
 import { farmsApi } from "@/services/api"; // <-- import your API
+import { getMediaUrl, formatCoordinates } from "@/lib/api-utils";
+
+interface Farm {
+  id: string;
+  name: string;
+  owner_name: string;
+  size_ha: number | string;
+  address?: string;
+  location?: string;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+  photo?: string | null;
+  route?: string;
+  route_name?: string;
+  crops?: Array<{ id: string; crop_type: string }>;
+  updated_at?: string;
+}
 
 const cropIconMap: Record<string, any> = {
   Maize: Wheat,
@@ -34,7 +52,7 @@ const cropIconMap: Record<string, any> = {
 
 export default function FarmsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [farms, setFarms] = useState<any[]>([]);
+  const [farms, setFarms] = useState<Farm[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -130,6 +148,31 @@ export default function FarmsPage() {
                           {farm.size_ha} hectares
                         </span>
                       </div>
+                      {farm.address && (
+                        <div className="flex justify-between items-start">
+                          <span className="text-sm text-muted-foreground">
+                            Address:
+                          </span>
+                          <span className="text-sm font-medium text-right max-w-[60%]">
+                            {farm.address}
+                          </span>
+                        </div>
+                      )}
+                      {(farm.latitude !== null && farm.latitude !== undefined && 
+                        farm.longitude !== null && farm.longitude !== undefined) && (
+                        (() => {
+                          const coords = formatCoordinates(farm.latitude, farm.longitude);
+                          return coords ? (
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm text-muted-foreground">
+                                <MapPin className="inline h-3 w-3 mr-1" />
+                                GPS:
+                              </span>
+                              <span className="text-sm font-mono">{coords}</span>
+                            </div>
+                          ) : null;
+                        })()
+                      )}
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-muted-foreground">
                           Crops:
@@ -155,6 +198,19 @@ export default function FarmsPage() {
                             : "-"}
                         </span>
                       </div>
+                      {farm.photo && (
+                        <div className="mt-3 -mx-4 -mb-4">
+                          <img
+                            src={getMediaUrl(farm.photo)}
+                            alt={`Photo of ${farm.name}`}
+                            className="w-full h-32 object-cover"
+                            onError={(e) => {
+                              // Hide image if it fails to load
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      )}
                       {/* <Link href={`/farms/${farm.id}`}>
                         <Button variant="outline" className="w-full">
                           View Details

@@ -7,7 +7,8 @@ import { usePathname } from "next/navigation"
 import Link from "next/link"
 import { Home, Map, Leaf, Droplets, Bug, BarChart, Settings, Menu, X, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
+import { VisuallyHidden } from "@/components/ui/visually-hidden"
 import { useMobile } from "@/hooks/use-mobile"
 import MobileNav from "./mobile-nav"
 
@@ -55,6 +56,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="p-0">
+                <VisuallyHidden>
+                  <SheetTitle>Navigation Menu</SheetTitle>
+                </VisuallyHidden>
                 <div className="p-6">
                   <div className="flex items-center justify-between mb-6">
                     <h2 className="text-lg font-semibold text-green-800">AgriSurvey</h2>
