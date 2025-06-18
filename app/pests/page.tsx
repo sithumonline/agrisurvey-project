@@ -13,6 +13,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Bug,
   Plus,
   Search,
@@ -20,10 +26,14 @@ import {
   Camera,
   Calendar,
   MapPin,
+  MoreVertical,
+  Edit,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import MainLayout from "@/components/layout/main-layout";
 import { PestReportForm } from "@/components/forms/pest-report-form";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { pestDiseaseApi } from "@/services/api";
 import { getMediaUrl } from "@/lib/api-utils";
 
@@ -37,6 +47,12 @@ export default function PestsPage() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [severityFilter, setSeverityFilter] = useState("all");
   const [sortBy, setSortBy] = useState("recent");
+  
+  // Edit and delete states
+  const [selectedReport, setSelectedReport] = useState<any>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [reportToDelete, setReportToDelete] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchReports = () => {
     setLoading(true);
@@ -101,7 +117,34 @@ export default function PestsPage() {
 
   const handleFormSuccess = () => {
     setIsFormOpen(false);
+    setSelectedReport(null);
     fetchReports();
+  };
+
+  const handleEdit = (report: any) => {
+    setSelectedReport(report);
+    setIsFormOpen(true);
+  };
+
+  const handleDelete = (report: any) => {
+    setReportToDelete(report);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!reportToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      await pestDiseaseApi.delete(reportToDelete.id);
+      fetchReports();
+      setIsDeleteDialogOpen(false);
+      setReportToDelete(null);
+    } catch (error) {
+      console.error("Failed to delete report:", error);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const getSeverityBadge = (severity: string) => {
@@ -156,7 +199,10 @@ export default function PestsPage() {
           </div>
           <Button
             className="mt-4 md:mt-0 bg-green-600 hover:bg-green-700"
-            onClick={() => setIsFormOpen(true)}
+            onClick={() => {
+              setSelectedReport(null);
+              setIsFormOpen(true);
+            }}
           >
             <Plus className="mr-2 h-4 w-4" />
             New Report
@@ -229,7 +275,10 @@ export default function PestsPage() {
             {(!searchTerm && categoryFilter === "all" && severityFilter === "all") && (
               <Button
                 className="mt-4 bg-green-600 hover:bg-green-700"
-                onClick={() => setIsFormOpen(true)}
+                onClick={() => {
+                  setSelectedReport(null);
+                  setIsFormOpen(true);
+                }}
               >
                 <Plus className="mr-2 h-4 w-4" />
                 Add First Report
@@ -255,9 +304,9 @@ export default function PestsPage() {
                   </div>
                 )}
                 <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-                  <div className="flex items-start space-x-3">
+                  <div className="flex items-start space-x-3 flex-1">
                     {getCategoryIcon(report.category)}
-                    <div>
+                    <div className="flex-1">
                       <CardTitle className="text-lg font-semibold">
                         {report.name}
                       </CardTitle>
@@ -266,7 +315,29 @@ export default function PestsPage() {
                       </p>
                     </div>
                   </div>
-                  {getSeverityBadge(report.severity)}
+                  <div className="flex items-start gap-2">
+                    {getSeverityBadge(report.severity)}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleEdit(report)}>
+                          <Edit className="mr-2 h-4 w-4" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => handleDelete(report)}
+                          className="text-red-600"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="space-y-2">
@@ -306,8 +377,26 @@ export default function PestsPage() {
         {/* Pest Report Form Modal */}
         <PestReportForm
           isOpen={isFormOpen}
-          onClose={() => setIsFormOpen(false)}
+          onClose={() => {
+            setIsFormOpen(false);
+            setSelectedReport(null);
+          }}
           onSuccess={handleFormSuccess}
+          report={selectedReport}
+        />
+        
+        {/* Delete Confirmation Dialog */}
+        <ConfirmDialog
+          isOpen={isDeleteDialogOpen}
+          onClose={() => {
+            setIsDeleteDialogOpen(false);
+            setReportToDelete(null);
+          }}
+          onConfirm={confirmDelete}
+          title="Delete Pest/Disease Report"
+          description={`Are you sure you want to delete "${reportToDelete?.name}"? This action cannot be undone.`}
+          confirmText={isDeleting ? "Deleting..." : "Delete"}
+          isDestructive
         />
       </div>
     </MainLayout>
