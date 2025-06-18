@@ -21,15 +21,17 @@ import {
   Edit2,
   Trash2,
   Edit,
+  AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
 import MainLayout from "@/components/layout/main-layout";
-import { farmsApi, cropsApi, soilSamplesApi, waterSamplesApi } from "@/services/api";
+import { farmsApi, cropsApi, soilSamplesApi, waterSamplesApi, pestDiseaseApi } from "@/services/api";
 import { CropForm } from "@/components/forms/crop-form";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FarmForm } from "@/components/forms/farm-form";
 import { SoilSampleForm } from "@/components/forms/soil-sample-form";
 import { WaterSampleForm } from "@/components/forms/water-sample-form";
+import { PestReportForm } from "@/components/forms/pest-report-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getMediaUrl } from "@/lib/api-utils";
@@ -69,6 +71,13 @@ export default function FarmDetailPage({
   const [isWaterDeleteDialogOpen, setIsWaterDeleteDialogOpen] = useState(false);
   const [waterSampleToDelete, setWaterSampleToDelete] = useState<any>(null);
   const [isDeletingWater, setIsDeletingWater] = useState(false);
+  
+  // Pest/Disease report state
+  const [isPestReportFormOpen, setIsPestReportFormOpen] = useState(false);
+  const [selectedPestReport, setSelectedPestReport] = useState<any>(null);
+  const [isPestDeleteDialogOpen, setIsPestDeleteDialogOpen] = useState(false);
+  const [pestReportToDelete, setPestReportToDelete] = useState<any>(null);
+  const [isDeletingPest, setIsDeletingPest] = useState(false);
 
   const fetchFarmDetails = () => {
     setLoading(true);
@@ -196,6 +205,39 @@ export default function FarmDetailPage({
       console.error("Failed to delete water sample:", error);
     } finally {
       setIsDeletingWater(false);
+    }
+  };
+
+  const handlePestReportSuccess = () => {
+    setIsPestReportFormOpen(false);
+    setSelectedPestReport(null);
+    // Refresh farm details to show new/updated report
+    fetchFarmDetails();
+  };
+
+  const handleEditPestReport = (report: any) => {
+    setSelectedPestReport(report);
+    setIsPestReportFormOpen(true);
+  };
+
+  const handleDeletePestReport = (report: any) => {
+    setPestReportToDelete(report);
+    setIsPestDeleteDialogOpen(true);
+  };
+
+  const confirmDeletePestReport = async () => {
+    if (!pestReportToDelete) return;
+    
+    setIsDeletingPest(true);
+    try {
+      await pestDiseaseApi.delete(pestReportToDelete.id);
+      fetchFarmDetails(); // Refresh the farm details
+      setIsPestDeleteDialogOpen(false);
+      setPestReportToDelete(null);
+    } catch (error) {
+      console.error("Failed to delete pest/disease report:", error);
+    } finally {
+      setIsDeletingPest(false);
     }
   };
 
@@ -658,7 +700,10 @@ export default function FarmDetailPage({
           <TabsContent value="pests" className="space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-medium">Pest & Disease Reports</h3>
-              <Button className="bg-green-600 hover:bg-green-700">
+              <Button 
+                className="bg-green-600 hover:bg-green-700"
+                onClick={() => setIsPestReportFormOpen(true)}
+              >
                 <Plus className="mr-2 h-4 w-4" />
                 New Report
               </Button>
@@ -671,7 +716,36 @@ export default function FarmDetailPage({
                     <CardTitle className="text-md font-medium">
                       {report.name}
                     </CardTitle>
-                    <Bug className="h-4 w-4 text-green-600" />
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant="outline"
+                        className={`text-xs ${
+                          report.category === 'pest' 
+                            ? 'border-orange-500 text-orange-700' 
+                            : 'border-purple-500 text-purple-700'
+                        }`}
+                      >
+                        {report.category_display || report.category}
+                      </Badge>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => handleEditPestReport(report)}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-600 hover:text-red-700"
+                          onClick={() => handleDeletePestReport(report)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
                   </CardHeader>
                   <CardContent className="pt-4">
                     <div className="space-y-4">
@@ -680,7 +754,9 @@ export default function FarmDetailPage({
                           Date:
                         </span>
                         <span className="text-sm font-medium">
-                          {report.date || report.created_at}
+                          {report.report_date 
+                            ? new Date(report.report_date).toLocaleDateString() 
+                            : "-"}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
@@ -690,24 +766,35 @@ export default function FarmDetailPage({
                         <Badge
                           className={`${
                             report.severity === "high"
-                              ? "bg-red-100 text-red-800"
+                              ? "bg-red-100 text-red-800 hover:bg-red-100"
                               : report.severity === "medium"
-                              ? "bg-amber-100 text-amber-800"
-                              : "bg-green-100 text-green-800"
-                          } hover:bg-opacity-90`}
+                              ? "bg-amber-100 text-amber-800 hover:bg-amber-100"
+                              : "bg-green-100 text-green-800 hover:bg-green-100"
+                          }`}
                         >
-                          {report.severity
-                            ? report.severity.charAt(0).toUpperCase() +
-                              report.severity.slice(1)
-                            : "-"}
+                          {report.severity === "high" && (
+                            <AlertTriangle className="mr-1 h-3 w-3" />
+                          )}
+                          {report.severity_display || report.severity}
                         </Badge>
                       </div>
-                      <Link href={`/pests/${report.id}`}>
-                        <Button variant="outline" className="w-full mt-2">
-                          View Details
-                          <ArrowRight className="ml-2 h-4 w-4" />
-                        </Button>
-                      </Link>
+                      {report.description && (
+                        <div className="text-sm text-gray-600">
+                          {report.description}
+                        </div>
+                      )}
+                      {report.photo && (
+                        <div className="mt-2">
+                          <img
+                            src={getMediaUrl(report.photo)}
+                            alt={`${report.name} photo`}
+                            className="w-full h-32 object-cover rounded"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -718,6 +805,13 @@ export default function FarmDetailPage({
                   <p className="text-gray-500">
                     No pest or disease reports for this farm
                   </p>
+                  <Button 
+                    className="mt-4 bg-green-600 hover:bg-green-700"
+                    onClick={() => setIsPestReportFormOpen(true)}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add First Report
+                  </Button>
                 </div>
               )}
             </div>
@@ -807,6 +901,32 @@ export default function FarmDetailPage({
           title="Delete Water Sample"
           description={`Are you sure you want to delete this water sample? This action cannot be undone.`}
           confirmText={isDeletingWater ? "Deleting..." : "Delete"}
+          isDestructive
+        />
+        
+        {/* Pest Report Form Modal */}
+        <PestReportForm
+          isOpen={isPestReportFormOpen}
+          onClose={() => {
+            setIsPestReportFormOpen(false);
+            setSelectedPestReport(null);
+          }}
+          onSuccess={handlePestReportSuccess}
+          farmId={id}
+          report={selectedPestReport}
+        />
+        
+        {/* Pest Report Delete Confirmation Dialog */}
+        <ConfirmDialog
+          isOpen={isPestDeleteDialogOpen}
+          onClose={() => {
+            setIsPestDeleteDialogOpen(false);
+            setPestReportToDelete(null);
+          }}
+          onConfirm={confirmDeletePestReport}
+          title="Delete Pest/Disease Report"
+          description={`Are you sure you want to delete "${pestReportToDelete?.name}"? This action cannot be undone.`}
+          confirmText={isDeletingPest ? "Deleting..." : "Delete"}
           isDestructive
         />
       </div>

@@ -69,6 +69,7 @@ class FarmSerializer(serializers.ModelSerializer):
 
 # Import these only when needed to avoid circular imports
 from api.serializers.sampling import SoilSampleSerializer, WaterSampleSerializer
+from api.serializers.pest import PestDiseaseReportSerializer
 
 
 class FarmDetailSerializer(FarmSerializer):
@@ -77,9 +78,10 @@ class FarmDetailSerializer(FarmSerializer):
     crops = CropSerializer(many=True, read_only=True)
     soil_samples = SoilSampleSerializer(many=True, read_only=True)
     water_samples = WaterSampleSerializer(many=True, read_only=True)
+    pest_disease_reports = PestDiseaseReportSerializer(many=True, read_only=True)
 
     class Meta(FarmSerializer.Meta):
-        fields = FarmSerializer.Meta.fields + ['soil_samples', 'water_samples']
+        fields = FarmSerializer.Meta.fields + ['soil_samples', 'water_samples', 'pest_disease_reports']
 
 
 class FarmCreateUpdateSerializer(serializers.ModelSerializer):

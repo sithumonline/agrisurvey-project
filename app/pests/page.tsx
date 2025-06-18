@@ -6,23 +6,37 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Bug,
   Plus,
   Search,
-  ArrowRight,
   AlertTriangle,
   Camera,
+  Calendar,
+  MapPin,
 } from "lucide-react";
 import Link from "next/link";
 import MainLayout from "@/components/layout/main-layout";
 import { PestReportForm } from "@/components/forms/pest-report-form";
 import { pestDiseaseApi } from "@/services/api";
+import { getMediaUrl } from "@/lib/api-utils";
 
 export default function PestsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [reports, setReports] = useState<any[]>([]);
+  const [filteredReports, setFilteredReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [severityFilter, setSeverityFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("recent");
 
   const fetchReports = () => {
     setLoading(true);
@@ -31,6 +45,7 @@ export default function PestsPage() {
       .then((res) => {
         const data = Array.isArray(res.data) ? res.data : res.data.results;
         setReports(data || []);
+        setFilteredReports(data || []);
         setLoading(false);
       })
       .catch(() => {
@@ -42,6 +57,47 @@ export default function PestsPage() {
   useEffect(() => {
     fetchReports();
   }, []);
+
+  useEffect(() => {
+    let filtered = [...reports];
+
+    // Search filter
+    if (searchTerm) {
+      filtered = filtered.filter(
+        (report) =>
+          report.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          report.farm_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          report.description?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Category filter
+    if (categoryFilter !== "all") {
+      filtered = filtered.filter((report) => report.category === categoryFilter);
+    }
+
+    // Severity filter
+    if (severityFilter !== "all") {
+      filtered = filtered.filter((report) => report.severity === severityFilter);
+    }
+
+    // Sort
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case "recent":
+          return new Date(b.report_date).getTime() - new Date(a.report_date).getTime();
+        case "severity":
+          const severityOrder: Record<string, number> = { high: 3, medium: 2, low: 1 };
+          return severityOrder[b.severity] - severityOrder[a.severity];
+        case "name":
+          return a.name.localeCompare(b.name);
+        default:
+          return 0;
+      }
+    });
+
+    setFilteredReports(filtered);
+  }, [reports, searchTerm, categoryFilter, severityFilter, sortBy]);
 
   const handleFormSuccess = () => {
     setIsFormOpen(false);
@@ -74,6 +130,18 @@ export default function PestsPage() {
     }
   };
 
+  const getCategoryIcon = (category: string) => {
+    return category === "pest" ? (
+      <div className="p-2 bg-orange-100 rounded-full">
+        <Bug className="h-5 w-5 text-orange-600" />
+      </div>
+    ) : (
+      <div className="p-2 bg-purple-100 rounded-full">
+        <AlertTriangle className="h-5 w-5 text-purple-600" />
+      </div>
+    );
+  };
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -95,86 +163,140 @@ export default function PestsPage() {
           </Button>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex flex-col lg:flex-row gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-            <Input placeholder="Search reports..." className="pl-8" />
+            <Input 
+              placeholder="Search reports..." 
+              className="pl-8"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
           <div className="flex gap-2">
-            <Button variant="outline">Filter</Button>
-            <Button variant="outline">Sort</Button>
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="pest">Pests</SelectItem>
+                <SelectItem value="disease">Diseases</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={severityFilter} onValueChange={setSeverityFilter}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Severity" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Severity</SelectItem>
+                <SelectItem value="high">High</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="low">Low</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="recent">Most Recent</SelectItem>
+                <SelectItem value="severity">Severity</SelectItem>
+                <SelectItem value="name">Name</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
-        {loading ? (
+        {loading && (
           <div className="text-center py-10 text-muted-foreground">
             Loading reports...
           </div>
-        ) : error ? (
+        )}
+
+        {error && (
           <div className="text-center py-10 text-red-500">{error}</div>
-        ) : (
+        )}
+
+        {!loading && !error && filteredReports.length === 0 && (
+          <div className="text-center py-10">
+            <Bug className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500">
+              {searchTerm || categoryFilter !== "all" || severityFilter !== "all"
+                ? "No reports match your filters"
+                : "No pest or disease reports yet"}
+            </p>
+            {(!searchTerm && categoryFilter === "all" && severityFilter === "all") && (
+              <Button
+                className="mt-4 bg-green-600 hover:bg-green-700"
+                onClick={() => setIsFormOpen(true)}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add First Report
+              </Button>
+            )}
+          </div>
+        )}
+
+        {!loading && !error && filteredReports.length > 0 && (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {reports.map((report) => (
-              <Card key={report.id} className="overflow-hidden">
-                <CardHeader
-                  className={`flex flex-row items-center justify-between space-y-0 pb-2 border-b ${
-                    report.severity === "high" ? "bg-red-50" : "bg-gray-50"
-                  }`}
-                >
-                  <CardTitle className="text-md font-medium">
-                    {report.name}
-                    <Badge className="ml-2 bg-gray-100 text-gray-800 hover:bg-gray-100">
-                      {report.category_display || report.category}
-                    </Badge>
-                  </CardTitle>
-                  <Bug className="h-4 w-4 text-green-600" />
-                </CardHeader>
-                <CardContent className="pt-4">
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">
-                        Farm:
-                      </span>
-                      <span className="text-sm font-medium">
-                        {report.farm_name}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">
-                        Date:
-                      </span>
-                      <span className="text-sm font-medium">
-                        {report.report_date}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">
-                        Severity:
-                      </span>
-                      {getSeverityBadge(report.severity)}
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">
-                        Photo:
-                      </span>
-                      <span className="text-sm font-medium flex items-center">
-                        {report.photo ? (
-                          <>
-                            <Camera className="mr-1 h-3 w-3 text-green-600" />
-                            Available
-                          </>
-                        ) : (
-                          "Not available"
-                        )}
-                      </span>
-                    </div>
-                    {/* <Link href={`/pests/${report.id}`}>
-                      <Button variant="outline" className="w-full">
-                        View Details
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </Button>
-                    </Link> */}
+            {filteredReports.map((report) => (
+              <Card key={report.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+                {report.photo && (
+                  <div className="h-48 w-full bg-gray-100 relative">
+                    <img
+                      src={getMediaUrl(report.photo)}
+                      alt={report.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
                   </div>
+                )}
+                <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+                  <div className="flex items-start space-x-3">
+                    {getCategoryIcon(report.category)}
+                    <div>
+                      <CardTitle className="text-lg font-semibold">
+                        {report.name}
+                      </CardTitle>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {report.category_display || report.category}
+                      </p>
+                    </div>
+                  </div>
+                  {getSeverityBadge(report.severity)}
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="space-y-2">
+                    <div className="flex items-center text-sm">
+                      <MapPin className="h-4 w-4 mr-2 text-gray-500" />
+                      <Link 
+                        href={`/farms/${report.farm}`} 
+                        className="text-blue-600 hover:underline"
+                      >
+                        {report.farm_name}
+                      </Link>
+                    </div>
+                    <div className="flex items-center text-sm text-gray-600">
+                      <Calendar className="h-4 w-4 mr-2 text-gray-500" />
+                      {new Date(report.report_date).toLocaleDateString()}
+                    </div>
+                  </div>
+                  
+                  {report.description && (
+                    <p className="text-sm text-gray-600 line-clamp-2">
+                      {report.description}
+                    </p>
+                  )}
+
+                  {!report.photo && (
+                    <div className="flex items-center justify-center py-4 bg-gray-50 rounded text-gray-400">
+                      <Camera className="h-6 w-6 mr-2" />
+                      <span className="text-sm">No photo</span>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}
