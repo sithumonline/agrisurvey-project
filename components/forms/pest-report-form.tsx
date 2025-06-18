@@ -15,7 +15,8 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Loader2, Upload, X, Camera } from "lucide-react";
 import { ModalForm } from "@/components/ui/modal-form";
-import { pestDiseaseApi, farmsApi } from "@/services/api";
+import { farmsApi } from "@/services/api";
+import { offlineApi } from "@/services/offline-api";
 import { getMediaUrl } from "@/lib/api-utils";
 
 interface PestReportFormProps {
@@ -169,10 +170,10 @@ export function PestReportForm({
 
       if (report) {
         // Update existing report
-        await pestDiseaseApi.update(report.id, submitData);
+        await offlineApi.pestDisease.update(report.id, submitData);
       } else {
         // Create new report
-        await pestDiseaseApi.create(submitData);
+        await offlineApi.pestDisease.create(submitData);
       }
       
       if (onSuccess) {

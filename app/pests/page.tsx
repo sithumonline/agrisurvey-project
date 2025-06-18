@@ -35,6 +35,7 @@ import MainLayout from "@/components/layout/main-layout";
 import { PestReportForm } from "@/components/forms/pest-report-form";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { pestDiseaseApi } from "@/services/api";
+import { offlineApi } from "@/services/offline-api";
 import { getMediaUrl } from "@/lib/api-utils";
 
 export default function PestsPage() {
@@ -136,7 +137,7 @@ export default function PestsPage() {
     
     setIsDeleting(true);
     try {
-      await pestDiseaseApi.delete(reportToDelete.id);
+      await offlineApi.pestDisease.delete(reportToDelete.id);
       fetchReports();
       setIsDeleteDialogOpen(false);
       setReportToDelete(null);

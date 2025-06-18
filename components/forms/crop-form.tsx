@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { ModalForm } from "@/components/ui/modal-form";
-import { cropsApi } from "@/services/api";
+import { offlineApi } from "@/services/offline-api";
 
 interface CropFormProps {
   isOpen: boolean;
@@ -117,10 +117,10 @@ export function CropForm({ isOpen, onClose, onSuccess, farmId, crop }: CropFormP
 
       if (crop) {
         // Update existing crop
-        await cropsApi.update(crop.id, submitData);
+        await offlineApi.crops.update(crop.id, submitData);
       } else {
         // Create new crop
-        await cropsApi.create(submitData);
+        await offlineApi.crops.create(submitData);
       }
       
       setIsSubmitting(false);

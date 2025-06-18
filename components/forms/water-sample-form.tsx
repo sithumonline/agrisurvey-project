@@ -15,7 +15,8 @@ import {
 import { Loader2 } from "lucide-react";
 import { ModalForm } from "@/components/ui/modal-form";
 import { PhotoUpload } from "@/components/ui/photo-upload";
-import { waterSamplesApi, farmsApi } from "@/services/api";
+import { farmsApi } from "@/services/api";
+import { offlineApi } from "@/services/offline-api";
 
 interface WaterSampleFormProps {
   isOpen: boolean;
@@ -180,10 +181,10 @@ export function WaterSampleForm({
 
       if (sample) {
         // Update existing sample
-        await waterSamplesApi.update(sample.id, submitData);
+        await offlineApi.waterSamples.update(sample.id, submitData);
       } else {
         // Create new sample
-        await waterSamplesApi.create(submitData);
+        await offlineApi.waterSamples.create(submitData);
       }
       
       setIsSubmitting(false);

@@ -25,7 +25,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import MainLayout from "@/components/layout/main-layout";
-import { farmsApi, cropsApi, soilSamplesApi, waterSamplesApi, pestDiseaseApi } from "@/services/api";
+import { farmsApi } from "@/services/api";
+import { offlineApi } from "@/services/offline-api";
 import { CropForm } from "@/components/forms/crop-form";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FarmForm } from "@/components/forms/farm-form";
@@ -117,7 +118,7 @@ export default function FarmDetailPage({
     
     setIsDeleting(true);
     try {
-      await cropsApi.delete(cropToDelete.id);
+      await offlineApi.crops.delete(cropToDelete.id);
       // Refresh farm details
       fetchFarmDetails();
       setIsDeleteDialogOpen(false);
@@ -164,7 +165,7 @@ export default function FarmDetailPage({
     
     setIsDeletingSoil(true);
     try {
-      await soilSamplesApi.delete(soilSampleToDelete.id);
+      await offlineApi.soilSamples.delete(soilSampleToDelete.id);
       fetchFarmDetails(); // Refresh the farm details
       setIsSoilDeleteDialogOpen(false);
       setSoilSampleToDelete(null);
@@ -197,7 +198,7 @@ export default function FarmDetailPage({
     
     setIsDeletingWater(true);
     try {
-      await waterSamplesApi.delete(waterSampleToDelete.id);
+      await offlineApi.waterSamples.delete(waterSampleToDelete.id);
       fetchFarmDetails(); // Refresh the farm details
       setIsWaterDeleteDialogOpen(false);
       setWaterSampleToDelete(null);
@@ -230,7 +231,7 @@ export default function FarmDetailPage({
     
     setIsDeletingPest(true);
     try {
-      await pestDiseaseApi.delete(pestReportToDelete.id);
+      await offlineApi.pestDisease.delete(pestReportToDelete.id);
       fetchFarmDetails(); // Refresh the farm details
       setIsPestDeleteDialogOpen(false);
       setPestReportToDelete(null);

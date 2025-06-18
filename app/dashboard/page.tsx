@@ -4,16 +4,20 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Map, Leaf, Droplets, Bug, AlertTriangle, CheckCircle2, Clock, ArrowRight } from "lucide-react"
+import { Map, Leaf, Droplets, Bug, AlertTriangle, CheckCircle2, Clock, ArrowRight, RefreshCw, WifiOff } from "lucide-react"
 import Link from "next/link"
 import MainLayout from "@/components/layout/main-layout"
 import { dashboardApi } from "@/services/api"
 import {use, useEffect, useState} from "react"; // Import the dashboard API service
+import { useOfflineStatus } from "@/hooks/use-offline-status";
+import { Badge } from "@/components/ui/badge";
 
 export default function DashboardPage() {
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError]  = useState<string|null>(null);
+  const { isOnline, queueCount, syncStatus, syncNow } = useOfflineStatus();
+
 useEffect(()=>{
   // fetch dashboard data
   const fetchDashboardData = async () => {
@@ -23,7 +27,7 @@ useEffect(()=>{
       setDashboardData(response.data);
     } catch (err) {
       console.error("Failed to fetch dashboard data:", err);
-      setError(err);
+      setError("Failed to fetch dashboard data");
     } finally {
       setIsLoading(false);
     }
@@ -69,10 +73,46 @@ useEffect(()=>{
             <p className="text-muted-foreground">Welcome back, {dashboardData?.user?.name}. Here's your survey overview.</p>
           </div>
           <div className="mt-4 md:mt-0 flex space-x-2">
-            <Button variant="outline">Sync Data</Button>
+            <Button 
+              variant="outline" 
+              onClick={syncNow}
+              disabled={syncStatus?.status === 'syncing' || queueCount === 0}
+            >
+              <RefreshCw className={`mr-2 h-4 w-4 ${syncStatus?.status === 'syncing' ? 'animate-spin' : ''}`} />
+              Sync Data
+              {queueCount > 0 && (
+                <Badge variant="secondary" className="ml-2">{queueCount}</Badge>
+              )}
+            </Button>
             <Button className="bg-green-600 hover:bg-green-700">Start New Survey</Button>
           </div>
         </div>
+
+        {/* Offline/Sync Status Alert */}
+        {(!isOnline || queueCount > 0) && (
+          <Alert className={!isOnline ? "border-amber-200 bg-amber-50" : "border-blue-200 bg-blue-50"}>
+            {!isOnline ? (
+              <>
+                <WifiOff className="h-4 w-4" />
+                <AlertTitle>Working Offline</AlertTitle>
+                <AlertDescription>
+                  You're currently offline. Your data is being saved locally and will sync when connection is restored.
+                </AlertDescription>
+              </>
+            ) : queueCount > 0 ? (
+              <>
+                <RefreshCw className="h-4 w-4" />
+                <AlertTitle>Pending Sync</AlertTitle>
+                <AlertDescription>
+                  {queueCount} {queueCount === 1 ? 'update is' : 'updates are'} waiting to be synced. 
+                  {syncStatus?.status === 'syncing' 
+                    ? ` Syncing... ${syncStatus.completed}/${syncStatus.total} completed.`
+                    : ' Click "Sync Data" to sync now.'}
+                </AlertDescription>
+              </>
+            ) : null}
+          </Alert>
+        )}
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
@@ -97,7 +137,7 @@ useEffect(()=>{
               <p className="text-xs text-muted-foreground">
                 {
                   dashboardData?.activity && dashboardData?.activity.length > 0 ?
-                      dashboardData?.activity.filter((e)=>{return e.type == 'farm'}).map((e)=>{
+                      dashboardData?.activity.filter((e: any)=>{return e.type == 'farm'}).map((e: any)=>{
                         return <span key={e.id}>{e.name}, </span>
                       })
                       : 'Nothing new'

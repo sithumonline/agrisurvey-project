@@ -11,6 +11,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/s
 import { VisuallyHidden } from "@/components/ui/visually-hidden"
 import { useMobile } from "@/hooks/use-mobile"
 import MobileNav from "./mobile-nav"
+import { OfflineIndicator } from "@/components/ui/offline-indicator"
 
 interface MainLayoutProps {
   children: React.ReactNode
@@ -138,6 +139,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
       {/* Mobile navigation */}
       <MobileNav navItems={navItems} pathname={pathname} />
+      
+      {/* Offline indicator */}
+      <OfflineIndicator />
     </div>
   )
 }

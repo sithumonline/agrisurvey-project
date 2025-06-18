@@ -15,7 +15,8 @@ import {
 import { Loader2 } from "lucide-react";
 import { ModalForm } from "@/components/ui/modal-form";
 import { PhotoUpload } from "@/components/ui/photo-upload";
-import { soilSamplesApi, farmsApi } from "@/services/api";
+import { farmsApi } from "@/services/api";
+import { offlineApi } from "@/services/offline-api";
 
 interface SoilSampleFormProps {
   isOpen: boolean;
@@ -212,10 +213,10 @@ export function SoilSampleForm({
 
       if (sample) {
         // Update existing sample
-        await soilSamplesApi.update(sample.id, submitData);
+        await offlineApi.soilSamples.update(sample.id, submitData);
       } else {
         // Create new sample
-        await soilSamplesApi.create(submitData);
+        await offlineApi.soilSamples.create(submitData);
       }
       
       setIsSubmitting(false);

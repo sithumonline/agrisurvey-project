@@ -36,7 +36,7 @@ apiClient.interceptors.response.use(
         const originalRequest = error.config;
 
         // If error is 401 and not already retrying
-        if (error.response.status === 401 && !originalRequest._retry) {
+        if (error.response?.status === 401 && !originalRequest._retry) {
             originalRequest._retry = true;
 
             try {

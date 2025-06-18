@@ -17,7 +17,8 @@ import { Loader2 } from "lucide-react";
 import { ModalForm } from "@/components/ui/modal-form";
 import { PhotoUpload } from "@/components/ui/photo-upload";
 import { GPSLocation } from "@/components/ui/gps-location";
-import { farmsApi, routesApi } from "@/services/api";
+import { routesApi } from "@/services/api";
+import { offlineApi } from "@/services/offline-api";
 
 interface FarmFormProps {
   isOpen: boolean;
@@ -185,10 +186,10 @@ export function FarmForm({ isOpen, onClose, onSuccess, farmData }: FarmFormProps
 
       if (farmData?.id) {
         // Update existing farm
-        await farmsApi.update(farmData.id, submitData);
+        await offlineApi.farms.update(farmData.id, submitData);
       } else {
         // Create new farm
-        await farmsApi.create(submitData);
+        await offlineApi.farms.create(submitData);
       }
       
       setIsSubmitting(false);
