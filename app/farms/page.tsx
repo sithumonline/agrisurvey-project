@@ -32,6 +32,7 @@ import {
   SortAsc,
   MoreVertical,
   Edit,
+  CheckCircle2,
 } from "lucide-react";
 import Link from "next/link";
 import MainLayout from "@/components/layout/main-layout";
@@ -53,6 +54,8 @@ interface Farm {
   route_name?: string;
   crops?: Array<{ id: string; crop_type: string }>;
   updated_at?: string;
+  has_samples?: boolean;
+  has_pest_reports?: boolean;
 }
 
 const cropIconMap: Record<string, any> = {
@@ -249,6 +252,12 @@ export default function FarmsPage() {
                         {farm.name}
                       </CardTitle>
                       <div className="flex items-center gap-2">
+                        {(farm.has_samples || farm.has_pest_reports) && (
+                          <Badge className="bg-green-100 text-green-800 text-xs">
+                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                            Completed
+                          </Badge>
+                        )}
                         {farm.crops && farm.crops.length > 0 && (
                           <Badge variant="secondary" className="text-xs">
                             {farm.crops.length} {farm.crops.length === 1 ? 'crop' : 'crops'}

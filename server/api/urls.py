@@ -1,37 +1,39 @@
 from django.urls import path, include
-from rest_framework.routers import DefaultRouter
+from rest_framework import routers
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
     TokenVerifyView,
 )
-from api.views import (
-    UserViewSet,
-    RouteViewSet,
-    FarmViewSet,
-    CropViewSet,
-    SoilSampleViewSet,
-    WaterSampleViewSet,
-    PestDiseaseReportViewSet,
-    DashboardView,
+
+from api.views.auth import UserViewSet
+from api.views.route import RouteViewSet
+from api.views.farm import FarmViewSet, CropViewSet
+from api.views.sampling import SoilSampleViewSet, WaterSampleViewSet
+from api.views.pest import PestDiseaseReportViewSet
+from api.views.dashboard import DashboardView
+from api.views.export import (
+    ExportFarmsView,
+    ExportSoilSamplesView,
+    ExportWaterSamplesView,
+    ExportPestDiseaseView
 )
 
-# Create a router and register viewsets
-router = DefaultRouter()
-router.register(r'users', UserViewSet)
-router.register(r'routes', RouteViewSet)
-router.register(r'farms', FarmViewSet)
-router.register(r'crops', CropViewSet)
-router.register(r'soil-samples', SoilSampleViewSet)
-router.register(r'water-samples', WaterSampleViewSet)
-router.register(r'pest-disease', PestDiseaseReportViewSet)
+# Create a router and register our viewsets with it.
+router = routers.DefaultRouter()
+router.register(r'users', UserViewSet, basename='user')
+router.register(r'routes', RouteViewSet, basename='route')
+router.register(r'farms', FarmViewSet, basename='farm')
+router.register(r'crops', CropViewSet, basename='crop')
+router.register(r'soil-samples', SoilSampleViewSet, basename='soilsample')
+router.register(r'water-samples', WaterSampleViewSet, basename='watersample')
+router.register(r'pest-disease', PestDiseaseReportViewSet, basename='pestdisease')
 
-# API URL patterns
+# The API URLs are now determined automatically by the router.
 urlpatterns = [
-    # Include router URLs
     path('', include(router.urls)),
 
-    # Authentication endpoints
+    # Auth endpoints
     path('auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('auth/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
@@ -39,13 +41,10 @@ urlpatterns = [
     # Dashboard endpoint
     path('dashboard/', DashboardView.as_view(), name='dashboard'),
 
-    # Export endpoints (for reports)
-    path('export/farms/', FarmViewSet.as_view({'get': 'list'}), name='export_farms', kwargs={'format': 'csv'}),
-    path('export/soil-samples/', SoilSampleViewSet.as_view({'get': 'list'}), name='export_soil_samples',
-         kwargs={'format': 'csv'}),
-    path('export/water-samples/', WaterSampleViewSet.as_view({'get': 'list'}), name='export_water_samples',
-         kwargs={'format': 'csv'}),
-    path('export/pest-disease/', PestDiseaseReportViewSet.as_view({'get': 'list'}), name='export_pest_disease',
-         kwargs={'format': 'csv'}),
+    # Export endpoints (admin only)
+    path('export/farms/', ExportFarmsView.as_view(), name='export_farms'),
+    path('export/soil-samples/', ExportSoilSamplesView.as_view(), name='export_soil_samples'),
+    path('export/water-samples/', ExportWaterSamplesView.as_view(), name='export_water_samples'),
+    path('export/pest-disease/', ExportPestDiseaseView.as_view(), name='export_pest_disease'),
 ]
 

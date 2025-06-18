@@ -309,10 +309,10 @@ export default function PestsPage() {
                     {getCategoryIcon(report.category)}
                     <div className="flex-1">
                       <CardTitle className="text-lg font-semibold">
-                        {report.name}
+                    {report.name}
                       </CardTitle>
                       <p className="text-sm text-muted-foreground mt-1">
-                        {report.category_display || report.category}
+                      {report.category_display || report.category}
                       </p>
                     </div>
                   </div>
@@ -355,7 +355,7 @@ export default function PestsPage() {
                       <Calendar className="h-4 w-4 mr-2 text-gray-500" />
                       {new Date(report.report_date).toLocaleDateString()}
                     </div>
-                  </div>
+                    </div>
                   
                   {report.description && (
                     <p className="text-sm text-gray-600 line-clamp-2">

@@ -42,6 +42,8 @@ class FarmSerializer(serializers.ModelSerializer):
     soil_sample_count = serializers.SerializerMethodField()
     water_sample_count = serializers.SerializerMethodField()
     pest_disease_count = serializers.SerializerMethodField()
+    has_samples = serializers.SerializerMethodField()
+    has_pest_reports = serializers.SerializerMethodField()
 
     class Meta:
         model = Farm
@@ -50,6 +52,7 @@ class FarmSerializer(serializers.ModelSerializer):
             'size_ha', 'address', 'location', 'latitude', 'longitude',
             'photo', 'boundary_geo', 'crops', 'soil_sample_count', 
             'water_sample_count', 'pest_disease_count', 
+            'has_samples', 'has_pest_reports',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at']
@@ -65,6 +68,14 @@ class FarmSerializer(serializers.ModelSerializer):
 
     def get_pest_disease_count(self, obj):
         return obj.pest_disease_reports.count()
+
+    def get_has_samples(self, obj):
+        """Check if farm has any soil or water samples"""
+        return obj.soil_samples.exists() or obj.water_samples.exists()
+
+    def get_has_pest_reports(self, obj):
+        """Check if farm has any pest or disease reports"""
+        return obj.pest_disease_reports.exists()
 
 
 # Import these only when needed to avoid circular imports

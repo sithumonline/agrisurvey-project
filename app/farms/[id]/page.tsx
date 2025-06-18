@@ -3,7 +3,7 @@
 import React from "react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -22,10 +22,13 @@ import {
   Trash2,
   Edit,
   AlertTriangle,
+  AlertCircle,
+  Image,
+  CheckCircle2
 } from "lucide-react";
 import Link from "next/link";
 import MainLayout from "@/components/layout/main-layout";
-import { farmsApi } from "@/services/api";
+import { farmsApi, cropsApi, soilSamplesApi, waterSamplesApi, pestDiseaseApi } from "@/services/api";
 import { offlineApi } from "@/services/offline-api";
 import { CropForm } from "@/components/forms/crop-form";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -37,6 +40,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getMediaUrl } from "@/lib/api-utils";
 import { useRouter } from "next/navigation";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { FarmMap } from "@/components/ui/farm-map";
 
 export default function FarmDetailPage({
   params,
@@ -242,6 +247,42 @@ export default function FarmDetailPage({
     }
   };
 
+  const handleQuickComplete = async () => {
+    if (!farm || farm.has_samples || farm.has_pest_reports) return;
+    
+    setIsDeleting(true);
+    setError(null);
+    
+    try {
+      // Create a default soil sample to mark the farm as complete
+      const defaultSoilSample = {
+        farm: id,
+        sample_date: new Date().toISOString().split('T')[0],
+        pH: 7.0,
+        moisture_pct: 40,
+        nitrogen: 15,
+        phosphorus: 10,
+        potassium: 12,
+        notes: 'Quick completion sample for testing'
+      };
+      
+      const formData = new FormData();
+      Object.entries(defaultSoilSample).forEach(([key, value]) => {
+        formData.append(key, value.toString());
+      });
+      
+      await soilSamplesApi.create(formData);
+      
+      // Refresh farm data
+      await fetchFarmDetails();
+    } catch (err: any) {
+      console.error('Error quick completing farm:', err);
+      setError('Failed to quick complete farm');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <MainLayout>
@@ -262,6 +303,8 @@ export default function FarmDetailPage({
     );
   }
 
+  const isComplete = farm.has_samples || farm.has_pest_reports;
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -277,14 +320,34 @@ export default function FarmDetailPage({
               <p className="text-muted-foreground">Farm ID: {farm.id}</p>
             </div>
           </div>
-          <Button 
-            className="mt-4 md:mt-0" 
-            variant="outline"
-            onClick={() => setIsFarmFormOpen(true)}
-          >
-            <Edit className="mr-2 h-4 w-4" />
-            Edit Farm
-          </Button>
+          <div className="flex gap-2 mt-4 md:mt-0">
+            {!isComplete && (
+              <Button 
+                variant="outline"
+                onClick={handleQuickComplete}
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2" />
+                    Completing...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    Quick Complete
+                  </>
+                )}
+              </Button>
+            )}
+            <Button 
+              variant="outline"
+              onClick={() => setIsFarmFormOpen(true)}
+            >
+              <Edit className="mr-2 h-4 w-4" />
+              Edit Farm
+            </Button>
+          </div>
         </div>
 
         <Tabs
@@ -358,11 +421,12 @@ export default function FarmDetailPage({
                 <CardTitle>Farm Map</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="bg-gray-100 rounded-md h-64 flex items-center justify-center">
-                  <p className="text-gray-500">
-                    Farm boundary map would be displayed here
-                  </p>
-                </div>
+                <FarmMap 
+                  latitude={farm.latitude}
+                  longitude={farm.longitude}
+                  sizeHa={farm.size_ha}
+                  farmName={farm.name}
+                />
               </CardContent>
             </Card>
           </TabsContent>

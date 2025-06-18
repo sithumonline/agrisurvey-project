@@ -2,140 +2,152 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import permissions
 from django.db.models import Count, Q
+from django.utils import timezone
+from datetime import timedelta
 from api.models import (
-    Route, Farm, Crop,
+    Route, Farm,
     SoilSample, WaterSample,
     PestDiseaseReport
 )
 
 
 class DashboardView(APIView):
-    """View for dashboard data and statistics"""
-
+    """
+    Dashboard API endpoint
+    Returns summary statistics based on user role
+    """
     permission_classes = [permissions.IsAuthenticated]
 
-    def get(self, request, format=None):
-        """Get dashboard stats based on user role"""
+    def get(self, request):
         user = request.user
+        is_admin = user.role == 'admin'
 
-        # Base dashboard stats
-        stats = {
+        # Base dashboard data
+        dashboard_data = {
             'user': {
                 'id': str(user.id),
                 'username': user.username,
-                'name': user.get_full_name() or user.username,
+                'name': f"{user.first_name} {user.last_name}".strip() or user.username,
                 'role': user.role,
-            }
+                'email': user.email,
+            },
         }
 
-        # Filter data by user if enumerator
-        route_filter = {}
-        farm_filter = {}
+        # Routes statistics
+        if is_admin:
+            # Admin sees all routes
+            routes = Route.objects.all()
+        else:
+            # Enumerator sees only assigned routes
+            routes = Route.objects.filter(assigned_to=user)
+        
+        route_stats = routes.aggregate(
+            total=Count('id'),
+            completed=Count('id', filter=Q(status='completed')),
+            in_progress=Count('id', filter=Q(status='in_progress')),
+            pending=Count('id', filter=Q(status='pending'))
+        )
+        dashboard_data['routes'] = route_stats
 
-        if user.is_enumerator:
-            route_filter = {'assigned_to': user}
-            farm_filter = {'route__assigned_to': user}
-
-        # Get route stats
-        routes = Route.objects.filter(**route_filter)
-        route_stats = {
-            'total': routes.count(),
-            'pending': routes.filter(status=Route.Status.PENDING).count(),
-            'in_progress': routes.filter(status=Route.Status.IN_PROGRESS).count(),
-            'complete': routes.filter(status=Route.Status.COMPLETE).count(),
-        }
-        stats['routes'] = route_stats
-
-        # Get farm stats
-        farms = Farm.objects.filter(**farm_filter)
-        farm_stats = {
+        # Farms statistics
+        if is_admin:
+            farms = Farm.objects.all()
+        else:
+            # Enumerator sees farms in their routes
+            farms = Farm.objects.filter(route__assigned_to=user)
+        
+        dashboard_data['farms'] = {
             'total': farms.count(),
-            'by_route': self._get_farms_by_route(farms),
+            'recent': farms.filter(
+                created_at__gte=timezone.now() - timedelta(days=7)
+            ).count()
         }
-        stats['farms'] = farm_stats
 
-        # Get sampling stats
-        soil_samples = SoilSample.objects.filter(farm__in=farms)
-        water_samples = WaterSample.objects.filter(farm__in=farms)
+        # Sampling statistics
+        if is_admin:
+            soil_samples = SoilSample.objects.all()
+            water_samples = WaterSample.objects.all()
+        else:
+            soil_samples = SoilSample.objects.filter(farm__route__assigned_to=user)
+            water_samples = WaterSample.objects.filter(farm__route__assigned_to=user)
 
-        sampling_stats = {
+        dashboard_data['sampling'] = {
             'soil': {
                 'total': soil_samples.count(),
-                'latest': self._get_latest_samples(soil_samples, 5),
+                'recent': soil_samples.filter(
+                    created_at__gte=timezone.now() - timedelta(days=7)
+                ).count()
             },
             'water': {
                 'total': water_samples.count(),
-                'latest': self._get_latest_samples(water_samples, 5),
+                'recent': water_samples.filter(
+                    created_at__gte=timezone.now() - timedelta(days=7)
+                ).count()
             }
         }
-        stats['sampling'] = sampling_stats
 
-        # Get pest & disease stats
-        pest_disease = PestDiseaseReport.objects.filter(farm__in=farms)
-
-        pest_disease_stats = {
-            'total': pest_disease.count(),
-            'by_category': {
-                'pest': pest_disease.filter(category=PestDiseaseReport.Category.PEST).count(),
-                'disease': pest_disease.filter(category=PestDiseaseReport.Category.DISEASE).count(),
-            },
-            'by_severity': {
-                'low': pest_disease.filter(severity=PestDiseaseReport.Severity.LOW).count(),
-                'medium': pest_disease.filter(severity=PestDiseaseReport.Severity.MEDIUM).count(),
-                'high': pest_disease.filter(severity=PestDiseaseReport.Severity.HIGH).count(),
-            },
-            'latest': self._get_latest_pest_disease(pest_disease, 5),
+        # Pest & Disease reports
+        if is_admin:
+            pest_reports = PestDiseaseReport.objects.all()
+        else:
+            pest_reports = PestDiseaseReport.objects.filter(farm__route__assigned_to=user)
+        
+        dashboard_data['pest_reports'] = {
+            'total': pest_reports.count(),
+            'high_severity': pest_reports.filter(severity='high').count(),
+            'recent': pest_reports.filter(
+                created_at__gte=timezone.now() - timedelta(days=7)
+            ).count()
         }
-        stats['pest_disease'] = pest_disease_stats
 
-        # Get activity stats (recent entries)
-        activity = []
-
-        # Recent farms
-        for farm in farms.order_by('-created_at')[:5]:
-            activity.append({
-                'type': 'farm',
-                'id': str(farm.id),
-                'name': farm.name,
-                'date': farm.created_at.isoformat(),
-                'summary': f"Added Farm: {farm.name}"
+        # Recent activity
+        recent_farms = farms.order_by('-created_at')[:5]
+        recent_samples = []
+        
+        for sample in soil_samples.order_by('-created_at')[:3]:
+            recent_samples.append({
+                'type': 'soil',
+                'farm': sample.farm.name,
+                'date': sample.created_at,
+                'id': str(sample.id)
             })
 
-        # Recent soil samples
-        for sample in soil_samples.order_by('-created_at')[:5]:
-            activity.append({
-                'type': 'soil_sample',
-                'id': str(sample.id),
-                'farm_name': sample.farm.name,
-                'date': sample.created_at.isoformat(),
-                'summary': f"Soil Sample: {sample.farm.name}"
-            })
-
-        # Recent water samples
-        for sample in water_samples.order_by('-created_at')[:5]:
-            activity.append({
-                'type': 'water_sample',
-                'id': str(sample.id),
-                'farm_name': sample.farm.name,
-                'date': sample.created_at.isoformat(),
-                'summary': f"Water Sample: {sample.farm.name}"
-            })
-
-        # Recent pest/disease reports
-        for report in pest_disease.order_by('-created_at')[:5]:
-            activity.append({
-                'type': 'pest_disease',
-                'id': str(report.id),
-                'farm_name': report.farm.name,
-                'date': report.created_at.isoformat(),
-                'summary': f"{report.get_category_display()} Report: {report.name} on {report.farm.name}"
+        for sample in water_samples.order_by('-created_at')[:3]:
+            recent_samples.append({
+                'type': 'water',
+                'farm': sample.farm.name,
+                'date': sample.created_at,
+                'id': str(sample.id)
             })
 
         # Sort by date
-        activity.sort(key=lambda x: x['date'], reverse=True)
-        stats['activity'] = activity[:10]  # Only take the 10 most recent
+        recent_samples.sort(key=lambda x: x['date'], reverse=True)
+        
+        dashboard_data['activity'] = [
+            {
+                'type': 'farm',
+                'name': farm.name,
+                'date': farm.created_at,
+                'id': str(farm.id)
+            } for farm in recent_farms
+        ] + recent_samples[:5]  # Limit to 5 most recent
 
-        return Response(stats)
+        # Admin-specific data
+        if is_admin:
+            # Overall completion stats
+            total_routes = Route.objects.count()
+            completed_routes = Route.objects.filter(status='completed').count()
+            
+            dashboard_data['admin_stats'] = {
+                'total_users': user.__class__.objects.count(),
+                'total_enumerators': user.__class__.objects.filter(role='enumerator').count(),
+                'overall_completion': round(completed_routes / total_routes * 100) if total_routes > 0 else 0,
+                'farms_with_samples': farms.filter(
+                    Q(soil_samples__isnull=False) | Q(water_samples__isnull=False)
+                ).distinct().count()
+            }
+
+        return Response(dashboard_data)
 
     def _get_farms_by_route(self, farms):
         """Get farm counts by route"""

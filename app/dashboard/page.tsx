@@ -12,11 +12,12 @@ import {use, useEffect, useState} from "react"; // Import the dashboard API serv
 import { useOfflineStatus } from "@/hooks/use-offline-status";
 import { Badge } from "@/components/ui/badge";
 
+
 export default function DashboardPage() {
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError]  = useState<string|null>(null);
-  const { isOnline, queueCount, syncStatus, syncNow } = useOfflineStatus();
+  const { isOnline, queueCount, syncStatus, syncOfflineData } = useOfflineStatus();
 
 useEffect(()=>{
   // fetch dashboard data
@@ -73,9 +74,10 @@ useEffect(()=>{
             <p className="text-muted-foreground">Welcome back, {dashboardData?.user?.name}. Here's your survey overview.</p>
           </div>
           <div className="mt-4 md:mt-0 flex space-x-2">
+
             <Button 
               variant="outline" 
-              onClick={syncNow}
+              onClick={syncOfflineData}
               disabled={syncStatus?.status === 'syncing' || queueCount === 0}
             >
               <RefreshCw className={`mr-2 h-4 w-4 ${syncStatus?.status === 'syncing' ? 'animate-spin' : ''}`} />

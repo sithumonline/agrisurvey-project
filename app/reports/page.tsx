@@ -1,315 +1,207 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DatePicker } from "@/components/ui/date-picker"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { FileDown, Filter, Leaf, Map, Droplets, Bug } from "lucide-react"
+import { FileDown, Filter, Leaf, Map, Droplets, Bug, Download, RefreshCw, AlertTriangle, FileSpreadsheet, Shield, Calendar, Database } from "lucide-react"
 import MainLayout from "@/components/layout/main-layout"
+import { exportApi } from "@/services/api"
+import { useAuth } from "@/hooks/use-auth"
+import { useRouter } from 'next/navigation'
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
-export default function ReportsPage() {
-  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
-    from: undefined,
-    to: undefined,
-  })
+interface ExportItem {
+  id: string;
+  title: string;
+  description: string;
+  endpoint: keyof typeof exportApi;
+  icon: React.ReactNode;
+}
 
-  // Function to handle CSV export
-  const handleExportCSV = (dataType: string) => {
-    // In a real app, this would generate and download a CSV file
-    console.log(`Exporting ${dataType} data as CSV`)
+export default function ReportsPage() { 
+  const { user, isAdmin, isLoading: authLoading } = useAuth()
+  const [isExporting, setIsExporting] = useState<{[key: string]: boolean}>({})
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
-    // Mock data for demonstration
-    let csvContent = ""
-
-    switch (dataType) {
-      case "farms":
-        csvContent =
-          'id,name,owner,size,crops,lastVisited\n1,Johnson\'s Maize Field,Robert Johnson,5.2,"Maize, Beans",Today'
-        break
-      case "soil":
-        csvContent =
-          "id,farmName,sampleDate,pH,moisture,nutrientN,nutrientP,nutrientK\n1,Johnson's Maize Field,2025-04-26,6.8,42,15,8,12"
-        break
-      case "water":
-        csvContent = "id,location,sampleDate,pH,turbidity\n1,River Tributary #3,2025-04-18,7.1,12"
-        break
-      case "pests":
-        csvContent = "id,type,name,farmName,reportDate,severity\n1,pest,Aphids,Johnson's Maize Field,2025-04-26,medium"
-        break
-      default:
-        csvContent = ""
+  // Redirect if not admin
+  useEffect(() => {
+    if (!authLoading && !isAdmin) {
+      router.push('/dashboard')
     }
+  }, [authLoading, isAdmin, router])
 
-    // Create and download the CSV file
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement("a")
-    link.setAttribute("href", url)
-    link.setAttribute("download", `agrisurvey_${dataType}_${new Date().toISOString().split("T")[0]}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+  const exportItems: ExportItem[] = [
+    {
+      id: 'farms',
+      title: 'Farms Data',
+      description: 'Export all farm records including location, owner, and size information',
+      endpoint: 'farms',
+      icon: <FileSpreadsheet className="h-5 w-5" />
+    },
+    {
+      id: 'soil-samples',
+      title: 'Soil Samples',
+      description: 'Export soil sample data with pH, moisture, and nutrient levels',
+      endpoint: 'soilSamples',
+      icon: <FileSpreadsheet className="h-5 w-5" />
+    },
+    {
+      id: 'water-samples',
+      title: 'Water Samples',
+      description: 'Export water sample data including pH, turbidity, and bacteria presence',
+      endpoint: 'waterSamples',
+      icon: <FileSpreadsheet className="h-5 w-5" />
+    },
+    {
+      id: 'pest-disease',
+      title: 'Pest & Disease Reports',
+      description: 'Export all pest sightings and disease reports with severity levels',
+      endpoint: 'pestDisease',
+      icon: <FileSpreadsheet className="h-5 w-5" />
+    }
+  ];
+
+  const handleExport = async (item: ExportItem) => {
+    setIsExporting({ ...isExporting, [item.id]: true })
+    setError(null)
+    
+    try {
+      const response = await exportApi[item.endpoint]()
+      
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `${item.id}-${new Date().toISOString().split('T')[0]}.csv`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+      
+      // Update last exported time in localStorage
+      const exportHistory = JSON.parse(localStorage.getItem('exportHistory') || '{}')
+      exportHistory[item.id] = new Date().toISOString()
+      localStorage.setItem('exportHistory', JSON.stringify(exportHistory))
+    } catch (err: any) {
+      console.error(`Failed to export ${item.id}:`, err)
+      if (err.response?.status === 403) {
+        setError('You do not have permission to export data. Only administrators can access this feature.')
+      } else {
+        setError(`Failed to export ${item.title}. Please try again.`)
+      }
+    } finally {
+      setIsExporting({ ...isExporting, [item.id]: false })
+    }
+  }
+
+  const getLastExported = (itemId: string): string | null => {
+    const exportHistory = JSON.parse(localStorage.getItem('exportHistory') || '{}')
+    if (exportHistory[itemId]) {
+      const date = new Date(exportHistory[itemId])
+      return date.toLocaleDateString() + ' at ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }
+    return null
+  }
+
+  if (authLoading) {
+    return (
+      <MainLayout>
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+        </div>
+      </MainLayout>
+    )
   }
 
   return (
     <MainLayout>
       <div className="space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Reports</h1>
-            <p className="text-muted-foreground">Generate and export survey data reports</p>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Reports & Export</h1>
+          <p className="text-muted-foreground">Download survey data in CSV format for analysis</p>
+        </div>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Export Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        <div className="grid gap-4 md:grid-cols-2">
+          {exportItems.map((item) => {
+            const lastExported = getLastExported(item.id);
+            return (
+              <Card key={item.id}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      {item.icon}
+                      <CardTitle className="text-lg">{item.title}</CardTitle>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => handleExport(item)}
+                      disabled={isExporting[item.id]}
+                    >
+                      {isExporting[item.id] ? (
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
+                      <span className="ml-2">Export</span>
+                    </Button>
+                  </div>
+                  <CardDescription>{item.description}</CardDescription>
+                </CardHeader>
+                {lastExported && (
+                  <CardContent>
+                    <div className="flex items-center text-sm text-muted-foreground">
+                      <Calendar className="h-4 w-4 mr-2" />
+                      Last exported: {lastExported}
+                    </div>
+                  </CardContent>
+                )}
+              </Card>
+            );
+          })}
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center">
-              <Filter className="mr-2 h-5 w-5" />
-              Report Filters
-            </CardTitle>
+            <CardTitle>Export Guidelines</CardTitle>
+            <CardDescription>Important information about data exports</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="text-sm font-medium mb-2 block">Date Range</label>
-                <DatePicker
-                  selected={dateRange.from}
-                  onSelect={(date) => {
-                    setDateRange((prev) => ({ ...prev, from: date }))
-                  }}
-                  placeholderText="From date"
-                  className="w-full"
-                />
+          <CardContent className="space-y-2">
+            <div className="flex items-start space-x-2">
+              <Database className="h-4 w-4 mt-0.5 text-green-600" />
+              <div className="text-sm">
+                <p className="font-medium">Data Coverage</p>
+                <p className="text-muted-foreground">Exports include all data from all routes and enumerators</p>
               </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">&nbsp;</label>
-                <DatePicker
-                  selected={dateRange.to}
-                  onSelect={(date) => {
-                    setDateRange((prev) => ({ ...prev, to: date }))
-                  }}
-                  placeholderText="To date"
-                  className="w-full"
-                />
+            </div>
+            <div className="flex items-start space-x-2">
+              <FileSpreadsheet className="h-4 w-4 mt-0.5 text-green-600" />
+              <div className="text-sm">
+                <p className="font-medium">File Format</p>
+                <p className="text-muted-foreground">CSV files can be opened in Excel, Google Sheets, or any spreadsheet application</p>
               </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Route</label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Routes" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Routes</SelectItem>
-                    <SelectItem value="1">Eastern District Route</SelectItem>
-                    <SelectItem value="2">Northern Farms Survey</SelectItem>
-                    <SelectItem value="3">Riverside Water Sampling</SelectItem>
-                  </SelectContent>
-                </Select>
+            </div>
+            <div className="flex items-start space-x-2">
+              <AlertTriangle className="h-4 w-4 mt-0.5 text-amber-600" />
+              <div className="text-sm">
+                <p className="font-medium">Data Privacy</p>
+                <p className="text-muted-foreground">Exported data may contain sensitive information. Handle with care and follow data protection guidelines</p>
               </div>
             </div>
           </CardContent>
         </Card>
-
-        <Tabs defaultValue="farms" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="farms">Farms</TabsTrigger>
-            <TabsTrigger value="soil">Soil Samples</TabsTrigger>
-            <TabsTrigger value="water">Water Samples</TabsTrigger>
-            <TabsTrigger value="pests">Pests & Diseases</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="farms">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="flex items-center">
-                  <Leaf className="mr-2 h-5 w-5" />
-                  Farm Reports
-                </CardTitle>
-                <Button variant="outline" className="flex items-center" onClick={() => handleExportCSV("farms")}>
-                  <FileDown className="mr-2 h-4 w-4" />
-                  Export CSV
-                </Button>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Farm Name</TableHead>
-                      <TableHead>Owner</TableHead>
-                      <TableHead>Size (ha)</TableHead>
-                      <TableHead>Crops</TableHead>
-                      <TableHead>Last Visited</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    <TableRow>
-                      <TableCell className="font-medium">Johnson's Maize Field</TableCell>
-                      <TableCell>Robert Johnson</TableCell>
-                      <TableCell>5.2</TableCell>
-                      <TableCell>Maize, Beans</TableCell>
-                      <TableCell>Today</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className="font-medium">Green Valley Coffee Plantation</TableCell>
-                      <TableCell>Maria Garcia</TableCell>
-                      <TableCell>12.8</TableCell>
-                      <TableCell>Coffee</TableCell>
-                      <TableCell>Yesterday</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className="font-medium">Riverside Orchard</TableCell>
-                      <TableCell>James Wilson</TableCell>
-                      <TableCell>8.5</TableCell>
-                      <TableCell>Apples, Pears</TableCell>
-                      <TableCell>Apr 18, 2025</TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="soil">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="flex items-center">
-                  <Map className="mr-2 h-5 w-5" />
-                  Soil Sample Reports
-                </CardTitle>
-                <Button variant="outline" className="flex items-center" onClick={() => handleExportCSV("soil")}>
-                  <FileDown className="mr-2 h-4 w-4" />
-                  Export CSV
-                </Button>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Sample ID</TableHead>
-                      <TableHead>Farm</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>pH</TableHead>
-                      <TableHead>Moisture</TableHead>
-                      <TableHead>NPK</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    <TableRow>
-                      <TableCell className="font-medium">#1</TableCell>
-                      <TableCell>Johnson's Maize Field</TableCell>
-                      <TableCell>Today</TableCell>
-                      <TableCell>6.8</TableCell>
-                      <TableCell>42%</TableCell>
-                      <TableCell>15-8-12</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className="font-medium">#2</TableCell>
-                      <TableCell>Eastern Wheat Fields</TableCell>
-                      <TableCell>Yesterday</TableCell>
-                      <TableCell>7.2</TableCell>
-                      <TableCell>38%</TableCell>
-                      <TableCell>12-10-14</TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="water">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="flex items-center">
-                  <Droplets className="mr-2 h-5 w-5" />
-                  Water Sample Reports
-                </CardTitle>
-                <Button variant="outline" className="flex items-center" onClick={() => handleExportCSV("water")}>
-                  <FileDown className="mr-2 h-4 w-4" />
-                  Export CSV
-                </Button>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Sample ID</TableHead>
-                      <TableHead>Location</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>pH</TableHead>
-                      <TableHead>Turbidity</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    <TableRow>
-                      <TableCell className="font-medium">#1</TableCell>
-                      <TableCell>River Tributary #3</TableCell>
-                      <TableCell>Apr 18, 2025</TableCell>
-                      <TableCell>7.1</TableCell>
-                      <TableCell>12 NTU</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className="font-medium">#2</TableCell>
-                      <TableCell>Irrigation Canal #2</TableCell>
-                      <TableCell>Apr 15, 2025</TableCell>
-                      <TableCell>6.9</TableCell>
-                      <TableCell>8 NTU</TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="pests">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="flex items-center">
-                  <Bug className="mr-2 h-5 w-5" />
-                  Pest & Disease Reports
-                </CardTitle>
-                <Button variant="outline" className="flex items-center" onClick={() => handleExportCSV("pests")}>
-                  <FileDown className="mr-2 h-4 w-4" />
-                  Export CSV
-                </Button>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Report ID</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Farm</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Severity</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    <TableRow>
-                      <TableCell className="font-medium">#1</TableCell>
-                      <TableCell>Pest</TableCell>
-                      <TableCell>Aphids</TableCell>
-                      <TableCell>Johnson's Maize Field</TableCell>
-                      <TableCell>Today</TableCell>
-                      <TableCell>Medium</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className="font-medium">#2</TableCell>
-                      <TableCell>Disease</TableCell>
-                      <TableCell>Powdery Mildew</TableCell>
-                      <TableCell>Riverside Orchard</TableCell>
-                      <TableCell>Yesterday</TableCell>
-                      <TableCell>Low</TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
       </div>
     </MainLayout>
   )

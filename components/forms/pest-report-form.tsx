@@ -86,18 +86,18 @@ export function PestReportForm({
     
     // Only load farms if not provided
     if (!farmId && !report?.farm) {
-      setLoadingFarms(true);
-      farmsApi
-        .getAll()
-        .then((res) => {
-          const data = Array.isArray(res.data) ? res.data : res.data.results;
-          setFarms(data || []);
-          setLoadingFarms(false);
-        })
-        .catch(() => {
-          setError("Failed to load farms");
-          setLoadingFarms(false);
-        });
+    setLoadingFarms(true);
+    farmsApi
+      .getAll()
+      .then((res) => {
+        const data = Array.isArray(res.data) ? res.data : res.data.results;
+        setFarms(data || []);
+        setLoadingFarms(false);
+      })
+      .catch(() => {
+        setError("Failed to load farms");
+        setLoadingFarms(false);
+      });
     } else {
       setLoadingFarms(false);
     }
@@ -188,7 +188,7 @@ export function PestReportForm({
           .join(", ");
         setError(errorMessages);
       } else {
-        setError("Failed to save report");
+      setError("Failed to save report");
       }
     } finally {
       setIsSubmitting(false);
@@ -204,30 +204,30 @@ export function PestReportForm({
     >
       <form onSubmit={handleSubmit} className="space-y-4 mt-4">
         {!farmId && !report?.farm && (
-          <div className="space-y-2">
-            <Label htmlFor="farmId">Farm</Label>
-            <Select
-              value={formData.farmId}
-              onValueChange={handleFarmChange}
-              required
-              disabled={loadingFarms}
-            >
-              <SelectTrigger id="farmId">
-                <SelectValue
-                  placeholder={
-                    loadingFarms ? "Loading farms..." : "Select a farm"
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {farms.map((farm) => (
-                  <SelectItem key={farm.id} value={farm.id}>
-                    {farm.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="space-y-2">
+          <Label htmlFor="farmId">Farm</Label>
+          <Select
+            value={formData.farmId}
+            onValueChange={handleFarmChange}
+            required
+            disabled={loadingFarms}
+          >
+            <SelectTrigger id="farmId">
+              <SelectValue
+                placeholder={
+                  loadingFarms ? "Loading farms..." : "Select a farm"
+                }
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {farms.map((farm) => (
+                <SelectItem key={farm.id} value={farm.id}>
+                  {farm.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         )}
 
         <div className="space-y-2">

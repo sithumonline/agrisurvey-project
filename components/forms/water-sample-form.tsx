@@ -80,18 +80,18 @@ export function WaterSampleForm({
       }
       
       // Load farms
-      setLoadingFarms(true);
-      farmsApi
-        .getAll()
-        .then((res) => {
-          const data = Array.isArray(res.data) ? res.data : res.data.results;
-          setFarms(data || []);
-          setLoadingFarms(false);
-        })
-        .catch(() => {
-          setError("Failed to load farms");
-          setLoadingFarms(false);
-        });
+    setLoadingFarms(true);
+    farmsApi
+      .getAll()
+      .then((res) => {
+        const data = Array.isArray(res.data) ? res.data : res.data.results;
+        setFarms(data || []);
+        setLoadingFarms(false);
+      })
+      .catch(() => {
+        setError("Failed to load farms");
+        setLoadingFarms(false);
+      });
     }
   }, [isOpen, defaultFarmId, sample]);
 

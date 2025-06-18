@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.db.models import Count, Q
 
 from api.models import Route, User
 
@@ -31,9 +32,16 @@ class RouteSerializer(serializers.ModelSerializer):
         return obj.farms.count()
 
     def get_completed_farms(self, obj):
-        # This is a placeholder. In a real app, you would define what makes a farm "completed"
-        # For example, having all required samples or meeting certain criteria
-        return 0  # Replace with actual logic
+        """Count farms that have samples or pest reports"""
+        # Use annotate to count farms with samples or pest reports in a single query
+        completed_farms = obj.farms.annotate(
+            sample_count=Count('soil_samples') + Count('water_samples'),
+            pest_count=Count('pest_disease_reports')
+        ).filter(
+            Q(sample_count__gt=0) | Q(pest_count__gt=0)
+        ).count()
+        
+        return completed_farms
 
     def get_progress(self, obj):
         farm_count = self.get_farm_count(obj)
