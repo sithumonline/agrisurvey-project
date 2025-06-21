@@ -1,8 +1,8 @@
-# WOC7014 Group Project Report
+# [WOC7014] Group Project Report
 
 *Project Title* : AgriSurvey <br>
 *Framework* : Django, Next.js <br>
-*Group Members* : Du Wentao (Matric Number), Wu Yilin (Matric Number), Li Fenyong (Matric Number), Hou Yujie (Matric Number), Bopitiyage Sithum Sandeepa Perera (24081446) <br>
+*Group Members* : Du Wentao (24084310), Wu Yilin (24055039), Li Fenyong (23096833), Hou Yujie (24084734), Bopitiyage Sithum Sandeepa Perera (24081446) <br>
 *Project Description* : Lightweight web app for agricultural data collection which enables field enumerators to record farm details, crop info, samples, and pest reports. <br>
 
 
@@ -42,7 +42,7 @@ If farm data already be loaded, survey can still continue, but submission will s
 
 ### 2. Routes and Farms
 
-*Group Members* : Li Fenyong (Matric Number)
+*Group Members* : Wu Yilin (24055039)
 
 **Routes**
 
@@ -81,7 +81,7 @@ Pests & diseases in farm:
 
 ### 3. Sampling
 
-*Group Members* : Li Fenyong (Matric Number)
+*Group Members* : Li Fenyong (23096833)
 
 **Soil Sample**
 
@@ -101,7 +101,7 @@ The Water Sample module can record core indicators such as sample source, test d
 
 ### 4. Pests & Diseases
 
-*Group Members* : Hou Yujie (Matric Number)
+*Group Members* : Hou Yujie (24084734)
 
 The Pest & Disease module allows users to quickly report pest and disease incidents through a standardized form, including selecting key information such as the associated farm, category, name, and severity, and can upload on-site photos and detailed descriptions of symptoms. The system automatically generates timestamp records and displays historical reports in the form of visual cards, supporting filtering and sorting by farm, date, and severity. The full report can be viewed through "View Details."
 
